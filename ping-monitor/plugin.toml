@@ -1,0 +1,119 @@
+# Ping Monitor: pings LAN devices, grouped, with a sound and a notification when one changes state.
+id = "nofiltera1/ping-monitor"
+name = "Ping Monitor"
+version = "1.0.0"
+plugin_api = 43
+author = "NoFilterA1"
+license = "MIT"
+dependencies = ["ping"]
+tags = ["bar", "panel", "service", "network"]
+icon = "server"
+description = "Ping LAN devices in a grid, with groups, drag reordering, per-device interval and sound, and latency."
+
+[[setting]]
+key = "sound_enabled"
+type = "bool"
+label_key = "settings.sound_enabled.label"
+default = true
+
+[[setting]]
+key = "sound_file"
+type = "file"
+label_key = "settings.sound_file.label"
+default = "/usr/share/sounds/Oxygen-Sys-App-Positive.ogg"
+extensions = [".ogg", ".wav", ".oga"]
+
+[[setting]]
+key = "history_days"
+type = "int"
+label_key = "settings.history_days.label"
+default = 14
+min = 3
+max = 30
+
+[[setting]]
+key = "timeout_seconds"
+type = "int"
+label_key = "settings.timeout_seconds.label"
+description_key = "settings.timeout_seconds.description"
+default = 2
+min = 1
+max = 10
+
+[[setting]]
+key = "fail_threshold"
+type = "int"
+label_key = "settings.fail_threshold.label"
+description_key = "settings.fail_threshold.description"
+default = 2
+min = 1
+max = 10
+
+[[setting]]
+key = "notify_on_down"
+type = "bool"
+label_key = "settings.notify_on_down.label"
+description_key = "settings.notify_on_down.description"
+default = true
+
+[[setting]]
+key = "notify_on_recovery"
+type = "bool"
+label_key = "settings.notify_on_recovery.label"
+description_key = "settings.notify_on_recovery.description"
+default = true
+
+[[setting]]
+key = "colorize_latency"
+type = "bool"
+label_key = "settings.colorize_latency.label"
+description_key = "settings.colorize_latency.description"
+default = true
+
+[[setting]]
+key = "columns"
+type = "select"
+label_key = "settings.columns.label"
+description_key = "settings.columns.description"
+default = "2"
+options = [
+  { value = "1", label_key = "settings.columns.one" },
+  { value = "2", label_key = "settings.columns.two" },
+  { value = "3", label_key = "settings.columns.three" },
+]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[widget.setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "server"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 680
+height = "content"
+max_height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel_tall"
+entry = "panel_tall.luau"
+width = 680
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
