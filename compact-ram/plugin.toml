@@ -1,0 +1,14 @@
+id = "omid511/compact-ram"
+name = "Compact RAM"
+version = "1.0.0"
+plugin_api = 12
+author = "omid511"
+license = "MIT"
+icon = "cpu"
+description = "A compact used-memory indicator for the bar."
+tags = ["system"]
+dependencies = []
+
+[[widget]]
+id = "ram"
+entry = "widget.luau"
