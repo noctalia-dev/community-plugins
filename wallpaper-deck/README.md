@@ -7,7 +7,7 @@ A feature-packed native Noctalia wallpaper manager inspired by Magic: The Gather
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
-| Version | `1.6.3` |
+| Version | `1.7.0` |
 | License | `GPL-3.0` |
 | Author | `Ishan0121` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
@@ -117,6 +117,7 @@ Wallpaper Deck allows you to snapshot your live Noctalia desktop widget layout a
 - **Color Search**: Click the palette icon (`Color`) next to the search input in the **Local** or **Favourites** tabs. Select any color using the color picker. The deck will asynchronously filter wallpapers whose Material 3 palette roles (primary, secondary, tertiary, container, or surface) match the target hue.
 - **Spectrum Ribbon**: An interactive chromatic spectrum bar spans the top of the card deck. Click anywhere on the gradient to jump straight to that hue section of the deck.
 - **Sorting Options**: Press `S` or click the sort pills to switch between **Name A-Z**, **Name Z-A**, **Colour** (chromatic hue order), **Newest**, and **Oldest**.
+- **Keyboard & Scroll**: Use `←`/`→` (or `H`/`L`) to step the deck; hold the key to keep stepping. Scroll over the deck does the same, one card per notch. `↑`/`↓` (or `K`/`J`) jump five cards, `R` picks a random wallpaper, `V` cycles the background fit, `Space` peeks at the full wallpaper and `Enter` applies it.
 
 ---
 
@@ -188,6 +189,7 @@ Configure under Noctalia Settings (**Settings** -> **Plugins** -> **Wallpaper De
 | `custom_command` | `string` | `swww img "{path}" --transition-type grow --transition-fps 60` | Shell command executed when `backend_mode` is set to `custom`. Supports `{path}` and `{output}` placeholders. |
 | `post_hook_command` | `string` | `""` | Optional shell hook executed after applying a wallpaper (e.g. `matugen image "{path}"`). |
 | `animate_selected_card` | `bool` | `true` | Enables subtle floating bobbing animation on the active center card. |
+| `default_sort_mode` | `select` | `name_asc` | Initial deck sort order when no sort has been chosen yet (`name_asc`, `colour`, `newest`). |
 | `remember_last_tab` | `bool` | `false` | Remember the active tab (Local, Favourites, Wallhaven) and filters across sessions. When disabled, always opens in Local mode with default filters. |
 | `preview_fit` | `select` | `cover` | How fullscreen background preview fits the panel (`cover`, `contain`, `stretch`). |
 | `scale_compensation` | `select` | `auto` | Controls how monitor HiDPI scaling is applied to preview dimensions (`auto`, `scaled`, `unscaled`). |

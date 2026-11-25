@@ -1,6 +1,6 @@
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.6.3"
+version = "1.7.0"
 plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
@@ -84,6 +84,18 @@ type = "bool"
 label_key = "settings.remember_last_tab.label"
 description_key = "settings.remember_last_tab.description"
 default = false
+
+[[setting]]
+key = "default_sort_mode"
+type = "select"
+label_key = "settings.default_sort_mode.label"
+description_key = "settings.default_sort_mode.description"
+default = "name_asc"
+options = [
+  { value = "name_asc", label_key = "settings.default_sort_mode.name_asc" },
+  { value = "colour", label_key = "settings.default_sort_mode.colour" },
+  { value = "newest", label_key = "settings.default_sort_mode.newest" }
+]
 
 [[setting]]
 key = "preview_fit"
