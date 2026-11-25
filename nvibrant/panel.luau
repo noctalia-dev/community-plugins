@@ -1,21 +1,20 @@
 --!nonstrict
--- NVibrant panel: on/off toggle and a saturation slider (0..1023) with live preview.
+-- NVibrant panel: on/off toggle and a saturation slider (0..1023) with live preview. The toggle shows what is
+-- actually applied, not what was last requested.
 local core = require("./core.luau")
 
 local state = core.load()
 
 local function draw()
+  local on = core.appliedOn()
   panel.render(ui.column({ gap = 12, padding = 16 }, {
     ui.row({ gap = 8, align = "center" }, {
-      ui.glyph({ name = "contrast", color = state.enabled and "primary" or "on_surface" }),
+      ui.glyph({ name = "contrast", color = on and "primary" or "on_surface" }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold", flexGrow = 1 }),
       ui.toggle({
-        checked = state.enabled,
-        onChange = function(on)
-          state.enabled = (on == true or on == "true")
-          core.save(state)
-          core.apply(state.enabled and state.level or 0)
-          draw()
+        checked = on,
+        onChange = function(v)
+          core.setEnabled(v == true or v == "true", function() draw() end)
         end,
       }),
     }),
@@ -24,10 +23,13 @@ local function draw()
         min = 0, max = core.MAX, step = 1, value = state.level, flexGrow = 1,
         onChange = function(v)
           state.level = math.floor(tonumber(v) or 0)
-          if state.enabled then core.apply(state.level) end
+          if core.appliedOn() then core.apply(state.level) end
         end,
         onDragEnd = function()
-          core.save(state)
+          -- the level is a preference: keep it even while off, so switching on uses it
+          local saved = core.load()
+          saved.level = state.level
+          core.save(saved)
           draw()
         end,
       }),
@@ -35,6 +37,8 @@ local function draw()
     }),
   }))
 end
+
+noctalia.state.watch("applied", function() draw() end)
 
 function onOpen()
   state = core.load()

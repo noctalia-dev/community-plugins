@@ -1,11 +1,13 @@
 --!nonstrict
--- Bar button: left click opens the panel, right click toggles saturation on/off.
+-- Bar button: left click opens the panel, right click toggles saturation on/off. The icon is lit only while a
+-- saturation is actually applied.
 local core = require("./core.luau")
 
 local function render()
-  local state = core.load()
-  barWidget.render(ui.glyph({ name = "contrast", color = state.enabled and "primary" or "on_surface" }))
+  barWidget.render(ui.glyph({ name = "contrast", color = core.appliedOn() and "primary" or "on_surface" }))
 end
+
+noctalia.state.watch("applied", function() render() end)
 
 function update()
   noctalia.setUpdateInterval(1500)
@@ -17,6 +19,5 @@ function onClick()
 end
 
 function onRightClick()
-  core.toggle()
-  render()
+  core.toggle(function() render() end)
 end

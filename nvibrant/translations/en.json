@@ -3,12 +3,6 @@
   "panel": {
     "title": "Saturation"
   },
-  "settings": {
-    "display_index": {
-      "label": "Display port",
-      "description": "0 = all ports (recommended). Otherwise the nvibrant port number, 1 = first."
-    }
-  },
   "toast": {
     "no_display": {
       "title": "NVibrant: no display",
@@ -20,7 +14,7 @@
     },
     "failed": {
       "title": "NVibrant failed",
-      "body": "nvibrant returned an error. Check the display port in plugin settings."
+      "body": "nvibrant returned an error. Check that nvibrant works from a terminal."
     }
   }
 }

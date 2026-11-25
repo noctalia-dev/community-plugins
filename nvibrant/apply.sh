@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# usage: apply.sh <vibrance 0-1023> <nvibrant-port-index (0-based), -1 = all ports>
+# usage: apply.sh <vibrance 0-1023>   (applied to every connected display)
 # exit: 0 ok, 3 no usable display, 4 nvibrant failed, 5 niri has no color-matrix support, 6 niri color-matrix command failed
 value=${1:-0}
-idx=${2:-0}
 
 nv_done=0 ctm_done=0 nv_found=0 ctm_found=0 err=0
 
@@ -21,14 +20,10 @@ for c in /sys/class/drm/card*-*; do
 done
 
 if [ $nv_found = 1 ]; then
+  # One value per port; nvibrant ignores ports without a display and extra values. A single port cannot be set
+  # alone: nvibrant takes positional values and resets every port it is not given, so the level goes to all.
   args=()
-  if [ "$idx" -lt 0 ]; then
-    # one value per port; nvibrant ignores ports without a display and extra values
-    for ((i = 0; i < 16; i++)); do args+=("$value"); done
-  else
-    for ((i = 0; i < idx; i++)); do args+=(0); done
-    args+=("$value")
-  fi
+  for ((i = 0; i < 16; i++)); do args+=("$value"); done
   nvibrant "${args[@]}" >/dev/null 2>&1 && nv_done=1 || err=4
 fi
 
