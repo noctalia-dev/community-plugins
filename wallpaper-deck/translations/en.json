@@ -18,6 +18,13 @@
       "description": "Command template executed on selection. Use {path} and {output} placeholders.",
       "label": "Custom Command"
     },
+    "default_sort_mode": {
+      "colour": "Colour (Dominant Hue)",
+      "description": "Initial sort order when no sort has been chosen yet. Sort pills, the S key and the scroll wheel still change it for the current session.",
+      "label": "Default Sort Order",
+      "name_asc": "Name (A-Z)",
+      "newest": "Newest First"
+    },
     "extra_wallpaper_dir": {
       "description": "Secondary directory scanned for wallpapers (e.g. ~/Pictures/WallHaven).",
       "label": "Additional Wallpaper Directory"

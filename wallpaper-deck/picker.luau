@@ -151,7 +151,6 @@ local function getWheelScript(): string?
     (type(noctalia.pluginDir) == "function" and (noctalia.pluginDir() .. "/scripts/wheel_listener.py")),
     noctalia.expandPath("~/.local/state/noctalia/plugins/materialized/community/wallpaper-deck/scripts/wheel_listener.py"),
     noctalia.expandPath("~/.local/share/noctalia/plugins/wallpaper-deck/scripts/wheel_listener.py"),
-    noctalia.expandPath("~/Documents/Codes/Aetheris/noctalia/community-plugins/wallpaper-deck/scripts/wheel_listener.py"),
   }
   for _, path in ipairs(candidates) do
     if path and noctalia.fileExists(path) then
@@ -251,6 +250,10 @@ local currentMode = (function()
   return "local"
 end)()
 local pendingStepAfterAppend = false
+-- Held-key navigation: the shell delivers one press per physical press and
+-- drops the compositor's auto-repeat, so holding Left/Right (or h/l) is
+-- replayed from the frame tick while the key stays down.
+local navRepeat = { dir = 0, elapsedMs = 0, repeatMs = 0, delayMs = 400, intervalMs = 120 }
 local render: () -> ()
 local triggerPreview -- forward declaration
 local toggleCurrentFavorite -- forward declaration
@@ -635,7 +638,7 @@ local function getWallhavenHiResCached(item: any): string?
   return nil
 end
 
-function bgSlots.getActiveBackground(item: any): string
+function bgSlots.getActiveBackground(item: any, preferBlur: boolean?): string
   if not item then return "" end
   if currentMode == "wallhaven" then
     if hiResPreview then
@@ -653,12 +656,26 @@ function bgSlots.getActiveBackground(item: any): string
         item._validPath = false
       end
     end
+    -- Thumb/blur lookups are cached and invalidated by the thumb_update
+    -- watcher, so stepping the deck does not hit the filesystem every frame.
+    if item._bgThumbPath == nil then
+      local tp = nil
+      if item.thumb and item.thumb ~= "" and noctalia.fileExists(item.thumb) then
+        tp = item.thumb
+      elseif item.preview and item.preview ~= "" and noctalia.fileExists(item.preview) then
+        tp = item.preview
+      end
+      item._bgThumbPath = tp or false
+    end
     local fullPath = (item._validPath ~= false) and item._validPath or nil
-    local thumbPath = (item.thumb and item.thumb ~= "" and noctalia.fileExists(item.thumb)) and item.thumb
-      or (item.preview and item.preview ~= "" and noctalia.fileExists(item.preview)) and item.preview
-      or fullPath
-      or ""
-    return fullPath or thumbPath
+    if preferBlur then
+      if item._bgBlurPath == nil then
+        item._bgBlurPath = (item.blur and item.blur ~= "" and noctalia.fileExists(item.blur)) and item.blur or false
+      end
+      local blurPath = item._bgBlurPath or nil
+      if blurPath then return blurPath end
+    end
+    return fullPath or (item._bgThumbPath or nil) or ""
   end
 end
 
@@ -772,14 +789,19 @@ local function scheduleSettle()
   -- Handled deterministically when spring animation completes in onFrameTick
 end
 
+-- The mapping is inlined on purpose: picker.luau is close to Luau's 200-local
+-- limit, so no extra helper locals are introduced here.
 local currentSort = (function()
   local s = noctalia.state.get("deck_sort")
   if type(s) == "string" and s ~= "" then return s end
+  local mode = noctalia.getConfig("default_sort_mode")
+  if mode == "colour" then return "colour" end
+  if mode == "newest" then return "newest" end
   return "name_asc"
 end)()
 local searchQuery = ""
 -- Color-search state packed into one table to stay within Luau's 200-local limit
-CSF = { color = nil, hueKey = nil, searching = false, token = 0 }
+CSF = { color = nil, hueKey = nil, searching = false, token = 0, sortUserSet = false }
 local isSearchFocused = false
 local whQueryDirty = false
 local whResDirty = false
@@ -1006,7 +1028,6 @@ local animatedPos = 1.0
 local animVel = 0.0
 local animTargetPos = 1.0
 local lastFrameMs = 0
-local lastPreviewed = ""
 
 local function resetDeckAnimation(pos: number?)
   local p = pos or 1.0
@@ -2566,11 +2587,6 @@ function triggerPreview()
   if currentMode == "wallhaven" then
     requestWallhavenThumb(item, true)
     checkWallhavenLazyLoad()
-    return
-  end
-  local pPath = (item.path and item.path ~= "" and noctalia.fileExists(item.path)) and item.path or (item.preview or item.thumb or "")
-  if lastPreviewed ~= pPath then
-    lastPreviewed = pPath
   end
 end
 
@@ -2629,7 +2645,10 @@ local function selectCardIndex(newIdx: number)
   scheduleSettle()
   local si = displayedItems[selectedIdx]
   if si then
-    local bg = bgSlots.getActiveBackground(si)
+    -- While the deck is moving (spring animation or a held key) use the
+    -- pre-blurred preview: it decodes instantly and avoids the hitch of a
+    -- full-resolution image swap on every step.
+    local bg = bgSlots.getActiveBackground(si, animateSelected or navRepeat.dir ~= 0)
     if bg ~= "" and bg ~= displayedBgPath then
       setDisplayedBackground(bg)
     end
@@ -2640,6 +2659,29 @@ local function selectCardIndex(newIdx: number)
   if type(render) == "function" then
     render()
   end
+end
+
+-- One step of the deck: dir < 0 goes left, dir > 0 goes right. At the end of
+-- the loaded Wallhaven list it asks for the next page once and reports false;
+-- the caller disarms the hold so a page boundary cannot hammer the service.
+local function stepDeck(dir: number): boolean
+  if #displayedItems == 0 then return false end
+  if dir < 0 then
+    if selectedIdx > 1 then
+      selectCardIndex(selectedIdx - 1)
+      return true
+    end
+    return false
+  end
+  if selectedIdx < #displayedItems then
+    selectCardIndex(selectedIdx + 1)
+    return true
+  end
+  if currentMode == "wallhaven" and not wallhavenLoadingMore then
+    pendingStepAfterAppend = true
+    checkWallhavenLazyLoad()
+  end
+  return false
 end
 
 local function doApplyWallpaperOnly(item: any, targetOut: string?)
@@ -2665,7 +2707,6 @@ local function doApplyWallpaperOnly(item: any, targetOut: string?)
     end
     activeWallpaper = item.path
     initialWallpaper = item.path
-    lastPreviewed = item.path
     noctalia.state.set("deck_command", { action = "apply", path = item.path, output = targetOut, skipWidgets = true, nonce = noctalia.nowMs() })
   end
   stopWheelListener()
@@ -2797,6 +2838,7 @@ toggleCurrentFavorite = function()
 end
 
 changeSort = function(newSort: string)
+  CSF.sortUserSet = true
   local currentItem = displayedItems[selectedIdx]
   local currentPath = currentItem and (currentItem.path or currentItem.id)
   currentSort = newSort
@@ -4200,7 +4242,8 @@ function render()
 
   local favCount = getFavCount()
 
-  local activeBg = bgSlots.getActiveBackground(activeItem)
+  local deckMoving = (navRepeat.dir ~= 0) or (animateSelected and (animatedPos ~= animTargetPos or animVel ~= 0.0))
+  local activeBg = bgSlots.getActiveBackground(activeItem, deckMoving)
 
   if #displayedItems == 0 then
     displayedBgPath = ""
@@ -5161,6 +5204,7 @@ function onOpen(context: any?)
   isSearchBoxHovered = false
   nativeScrollActive = false
   scrollAccum = 0
+  navRepeat.dir = 0
   hoveredDeckKeys = {}
   CT.isOpen = false
   CT.statusText = ""
@@ -5279,6 +5323,16 @@ function onOpen(context: any?)
   local savedLocalSort = noctalia.state.get("deck_sort")
   if type(savedLocalSort) == "string" and savedLocalSort ~= "" then
     currentSort = savedLocalSort
+  else
+    -- No sort chosen yet in this session: seed from the setting.
+    local defaultMode = noctalia.getConfig("default_sort_mode")
+    if defaultMode == "colour" then
+      currentSort = "colour"
+    elseif defaultMode == "newest" then
+      currentSort = "newest"
+    else
+      currentSort = "name_asc"
+    end
   end
 
   local savedFlattened = noctalia.state.get("deck_flattened")
@@ -5375,7 +5429,6 @@ function onOpen(context: any?)
   animTargetPos = selectedIdx
   animVel = 0.0
   lastFrameMs = 0
-  lastPreviewed = ""
   triggerPreview()
   panel.setNeedsFrameTick(false)
   onCardSettled()
@@ -5431,6 +5484,31 @@ function onFrameTick(deltaMs: any)
     end
     lastFrameMs = nowMs
 
+    -- Disarm a hold whenever a modal, the monitor dropdown or the search field
+    -- takes over: a key release swallowed by the dialog must not keep stepping.
+    if navRepeat.dir ~= 0 and (CT.isOpen or Profiles.isOpen or WH.catModalOpen or WH.resModalOpen
+        or isSearchFocused or isPeeking or monitorDropdownOpen) then
+      -- The tick still renders once below, and the settle path swaps the blur
+      -- back to the sharp image.
+      navRepeat.dir = 0
+    end
+
+    -- Held Left/Right: replay the auto-repeat that the shell filters out.
+    if navRepeat.dir ~= 0 then
+      navRepeat.elapsedMs = navRepeat.elapsedMs + dt * 1000.0
+      local fired = 0
+      while navRepeat.elapsedMs >= navRepeat.delayMs + navRepeat.repeatMs and fired < 4 do
+        navRepeat.repeatMs = navRepeat.repeatMs + navRepeat.intervalMs
+        fired = fired + 1
+        if not stepDeck(navRepeat.dir) then
+          -- Deck end, or a Wallhaven page is already being requested: stop
+          -- until the user presses again instead of retrying every frame.
+          navRepeat.dir = 0
+          break
+        end
+      end
+    end
+
     local isSpringActive = false
     if not animateSelected then
       animatedPos = selectedIdx
@@ -5464,7 +5542,7 @@ function onFrameTick(deltaMs: any)
       end
     end
 
-    panel.setNeedsFrameTick(isSpringActive)
+    panel.setNeedsFrameTick(isSpringActive or navRepeat.dir ~= 0)
     render()
   end)
 
@@ -5477,9 +5555,28 @@ function onFrameTick(deltaMs: any)
 end
 
 function onKey(chord: string, pressed: boolean)
-  if not pressed then return end
-
   local chordLower = string.lower(chord)
+  local navDir = 0
+  if chordLower == "left" or chordLower == "h" then
+    navDir = -1
+  elseif chordLower == "right" or chordLower == "l" then
+    navDir = 1
+  end
+
+  -- Key-up must be handled before the press-only return: otherwise a release
+  -- that arrives while a modal is open leaves the repeat armed forever.
+  if not pressed then
+    if navDir ~= 0 and navRepeat.dir == navDir then
+      navRepeat.dir = 0
+      -- No frame is scheduled once the spring has settled, so refresh here to
+      -- swap the blurred moving background back to the sharp one.
+      if type(render) == "function" then
+        render()
+      end
+    end
+    return
+  end
+
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
 
   -- Custom Themes modal intercepts Escape and Enter first
@@ -5567,6 +5664,7 @@ function onKey(chord: string, pressed: boolean)
       stopWheelListener()
     end
     if not isDeckAreaHovered or isPeeking then return end
+    if WH.catModalOpen or WH.resModalOpen or monitorDropdownOpen or isSearchBoxHovered then return end
     unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
@@ -5578,6 +5676,7 @@ function onKey(chord: string, pressed: boolean)
       stopWheelListener()
     end
     if not isDeckAreaHovered or isPeeking then return end
+    if WH.catModalOpen or WH.resModalOpen or monitorDropdownOpen or isSearchBoxHovered then return end
     unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -5599,19 +5698,21 @@ function onKey(chord: string, pressed: boolean)
     return
   end
 
-  if chordLower == "left" or chordLower == "h" then
+  if navDir ~= 0 then
+    -- Category/resolution popovers keep keyboard focus: never step behind them.
+    if WH.catModalOpen or WH.resModalOpen then return end
     unfocusSearch()
-    if selectedIdx > 1 then
-      selectCardIndex(selectedIdx - 1)
+    -- Step once immediately, then keep repeating from the frame tick while
+    -- the key stays down (the shell collapses auto-repeat into one press).
+    navRepeat.dir = navDir
+    navRepeat.elapsedMs = 0
+    navRepeat.repeatMs = 0
+    if not stepDeck(navDir) then
+      -- Nothing to step to (deck edge or page request in flight): do not arm
+      -- the repeat, otherwise it would fire into the same boundary.
+      navRepeat.dir = 0
     end
-  elseif chordLower == "right" or chordLower == "l" then
-    unfocusSearch()
-    if selectedIdx < #displayedItems then
-      selectCardIndex(selectedIdx + 1)
-    else
-      pendingStepAfterAppend = true
-      checkWallhavenLazyLoad()
-    end
+    panel.setNeedsFrameTick(true)
   elseif chordLower == "up" or chordLower == "k" or chordLower == "u" then
     unfocusSearch()
     local newIdx = math.max(1, selectedIdx - 5)
@@ -5686,9 +5787,17 @@ function onScroll(_axis: any, steps: any, _startsGesture: any)
     stopWheelListener()
   end
   if not isDeckAreaHovered or isPeeking then return end
+  -- Modals and the search box own the wheel: never step the deck behind them.
+  if CT.isOpen or Profiles.isOpen or WH.catModalOpen or WH.resModalOpen
+      or monitorDropdownOpen or isSearchBoxHovered then
+    return
+  end
   unfocusSearch()
 
   local stepVal = tonumber(steps) or 0
+  -- Clamp pathological deltas: every accumulated step renders a full frame, so
+  -- an unbounded loop from one event would freeze the panel.
+  if stepVal > 10 then stepVal = 10 elseif stepVal < -10 then stepVal = -10 end
   scrollAccum = scrollAccum + stepVal
 
   -- Move by whole accumulated steps instead of throttling by time.
@@ -5714,12 +5823,16 @@ end
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
     if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
+    if CT.isOpen or Profiles.isOpen or WH.catModalOpen or WH.resModalOpen
+        or monitorDropdownOpen or isSearchBoxHovered then return end
     unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
     if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
+    if CT.isOpen or Profiles.isOpen or WH.catModalOpen or WH.resModalOpen
+        or monitorDropdownOpen or isSearchBoxHovered then return end
     unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -5893,7 +6006,14 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
-          it._validPath = nil  -- let CSF.renderBg recompute on next render
+          if update.blur and update.blur ~= "" then
+            it.blur = update.blur
+          end
+          -- Invalidate every cached path (full, card thumb, blur): a card drawn
+          -- before generation finished must not stay pinned to its fallback.
+          it._validPath = nil
+          it._bgThumbPath = nil
+          it._bgBlurPath = nil
           if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
             if not (it.path and it.path ~= "" and noctalia.fileExists(it.path)) then
               setDisplayedBackground(update.thumb)
@@ -5910,7 +6030,12 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          if update.blur and update.blur ~= "" then
+            it.blur = update.blur
+          end
           it._validPath = nil
+          it._bgThumbPath = nil
+          it._bgBlurPath = nil
           break
         end
       end
@@ -6109,6 +6234,18 @@ function onConfigChanged()
     whOrder = (cfgOrder == "asc") and "asc" or "desc"
     noctalia.state.set("wallhaven_order", whOrder)
   end
+  -- Apply a changed default sort live unless the user picked a sort this
+  -- session (in which case their choice wins until the panel reopens).
+  if not CSF.sortUserSet then
+    local defaultMode = noctalia.getConfig("default_sort_mode")
+    if defaultMode == "colour" then
+      currentSort = "colour"
+    elseif defaultMode == "newest" then
+      currentSort = "newest"
+    else
+      currentSort = "name_asc"
+    end
+  end
   selectedIdx = 1
   resetDeckAnimation(1.0)
   rebuildList()
@@ -6122,6 +6259,8 @@ function onClose()
   isDeckAreaHovered = false
   isSearchBoxHovered = false
   hoveredDeckKeys = {}
+  -- A key can still be down when the panel closes: never leave a repeat armed.
+  navRepeat.dir = 0
   stopWheelListener()
   if isPeeking then
     isPeeking = false
