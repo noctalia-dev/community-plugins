@@ -6,8 +6,10 @@
 
 local GROUP_HEIGHT = 48
 local PROCESS_HEIGHT = 52
--- The list scrolls past this height.
-local MAX_LIST_HEIGHT = 320
+-- The list scrolls past this height. The scroll pads its rows by SCROLL_PAD_V above and below.
+local MAX_LIST_HEIGHT = 336
+local SCROLL_PAD_V = 8
+local ROW_GAP = 2
 -- Every row ends in these fixed columns, so CPU and memory line up under each other.
 local CPU_WIDTH = 56
 local MEMORY_WIDTH = 72
@@ -390,7 +392,7 @@ local function listView()
     height = 32
   end
 
-  local listHeight = math.min(height + 2 * #rows, MAX_LIST_HEIGHT)
+  local listHeight = math.min(height + ROW_GAP * (#rows - 1) + 2 * SCROLL_PAD_V, MAX_LIST_HEIGHT)
   return {
     ui.row({ key = "list-head", gap = 8, align = "center" }, {
       ui.glyph({ name = "list-details", size = 20, color = "primary" }),
@@ -426,7 +428,7 @@ local function listView()
     -- A scroll keeps the height of its first content, so it fills a column of the list's
     -- height (DESIGN.md, section 6.3).
     ui.column({ key = "list", height = listHeight }, {
-      ui.scroll({ key = "list", flexGrow = 1, gap = 2 }, rows),
+      ui.scroll({ key = "list", flexGrow = 1, gap = ROW_GAP }, rows),
     }),
   }
 end
