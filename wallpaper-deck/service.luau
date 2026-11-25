@@ -510,6 +510,88 @@ local function pruneCacheToDeck(cache: { [string]: any }, deck: { any }?): { [st
   return pruned
 end
 
+local thumbPruneInProgress = false
+
+local function collectActiveThumbHashes(deck: { any }, cache: { [string]: any }?): { [string]: boolean }
+  local activeHashes: { [string]: boolean } = {}
+  for _, it in ipairs(deck) do
+    if type(it) == "table" and type(it.path) == "string" and it.path ~= "" then
+      activeHashes[hashKey(it.path)] = true
+    end
+  end
+  if type(cache) == "table" then
+    local kept = pruneCacheToDeck(cache, deck)
+    for p, _ in pairs(kept) do
+      if type(p) == "string" and p ~= "" then
+        activeHashes[hashKey(p)] = true
+      end
+    end
+  end
+  if type(favorites) == "table" then
+    for p, val in pairs(favorites) do
+      if val and type(p) == "string" and p ~= "" then
+        activeHashes[hashKey(p)] = true
+      end
+    end
+  end
+  return activeHashes
+end
+
+local function pruneOrphanedThumbs(deck: { any }?, cache: { [string]: any }?, token: number?)
+  if thumbPruneInProgress then return end
+  if not deck or #deck == 0 then return end
+  if isScanning or thumbActive > 0 then return end
+  if token and token ~= scanToken then return end
+  if not noctalia.fileExists(THUMB_DIR) then return end
+
+  thumbPruneInProgress = true
+  noctalia.runAsync({ "true" }, function()
+    if isScanning or thumbActive > 0 or (token and token ~= scanToken) then
+      thumbPruneInProgress = false
+      return
+    end
+    local files = noctalia.listDir(THUMB_DIR)
+    if not files or #files == 0 then
+      thumbPruneInProgress = false
+      return
+    end
+    local activeHashes = collectActiveThumbHashes(deck, cache)
+    local toRemove: { string } = {}
+    for _, fname in ipairs(files) do
+      if fname ~= "." and fname ~= ".." then
+        local hash = string.match(fname, "^(%x+)_card%.webp$") or string.match(fname, "^(%x+)_blur%.webp$")
+        if hash and not activeHashes[hash] then
+          table.insert(toRemove, THUMB_DIR .. "/" .. fname)
+        end
+      end
+    end
+    if #toRemove == 0 then
+      thumbPruneInProgress = false
+      return
+    end
+
+    local idx = 1
+    local BATCH_REMOVE = 40
+    local function removeBatch()
+      if isScanning or thumbActive > 0 or (token and token ~= scanToken) then
+        thumbPruneInProgress = false
+        return
+      end
+      local endIdx = math.min(#toRemove, idx + BATCH_REMOVE - 1)
+      for i = idx, endIdx do
+        pcall(noctalia.removeFile, toRemove[i])
+      end
+      idx = endIdx + 1
+      if idx <= #toRemove then
+        noctalia.runAsync({ "true" }, removeBatch)
+      else
+        thumbPruneInProgress = false
+      end
+    end
+    noctalia.runAsync({ "true" }, removeBatch)
+  end)
+end
+
 local function saveDeckToDisk(deck: { any })
   local ok, deckJson = pcall(noctalia.json.encode, deck)
   if ok and deckJson then
@@ -860,7 +942,10 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
       else
         local argv = { "magick", p, "-thumbnail", "420x280^", "-gravity", "center", "-extent", "420x280", "-quality", "78", cardThumb }
         noctalia.runAsync(argv, function(res)
-          if token ~= scanToken then return end
+          if token ~= scanToken then
+            thumbActive = math.max(0, thumbActive - 1)
+            return
+          end
           if res and res.exitCode == 0 and noctalia.fileExists(cardThumb) then
             noctalia.runAsync({ "magick", cardThumb, "-blur", "0x8", "-quality", "55", blurThumb }, function()
               onThumbsDone(res)
@@ -878,6 +963,9 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
     thumbQueueHead = 1
     if cacheNeedsSave then
       scheduleCacheAndStateSync(deck, cache, true)
+    end
+    if not pickerPanelOpen and #deck > 0 then
+      pruneOrphanedThumbs(deck, cache, token)
     end
     pumpMatugenQueue(token, cache, deck)
   end
@@ -1939,7 +2027,10 @@ noctalia.state.watch("deck_command", function(cmd)
       pumpMatugenQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
     end
   elseif action == "prune_cache" then
-    noctalia.runAsync({ "true" }, prunePreviewCache)
+    noctalia.runAsync({ "true" }, function()
+      prunePreviewCache()
+      pruneOrphanedThumbs(activeDeckInMemory, activeCacheInMemory, scanToken)
+    end)
   elseif action == "clear_preview_cache" then
     noctalia.runAsync({ "true" }, clearAllPreviewCache)
   end
@@ -2022,6 +2113,7 @@ function onIpc(event: string, payload: string?)
     toggleFavorite(payload, nil)
   elseif event == "prune_cache" then
     prunePreviewCache()
+    pruneOrphanedThumbs(activeDeckInMemory, activeCacheInMemory, scanToken)
   elseif event == "clear_preview_cache" then
     clearAllPreviewCache()
   end
