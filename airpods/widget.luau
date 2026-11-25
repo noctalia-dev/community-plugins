@@ -19,15 +19,21 @@ local function variant()
 	return "buds"
 end
 
-local function iconPath()
-	local base = variant()
+-- Tabler glyph in the bar's icon colour (an unset `color` inherits it), so the
+-- widget matches the bar instead of drawing a fixed-colour SVG. Charging and
+-- low keep their colour cue through palette roles.
+local function iconGlyph()
+	return variant() == "max" and "headphones" or "device-airpods"
+end
+
+local function iconColor()
 	if snapshot.primaryState == "charging" then
-		return "icons/" .. base .. "-charging.svg"
+		return "primary"
 	end
 	if snapshot.primaryState == "low" then
-		return "icons/" .. base .. "-low.svg"
+		return "error"
 	end
-	return "icons/" .. base .. (noctalia.isDarkMode() and ".svg" or "-light.svg")
+	return nil
 end
 
 local function trValue(value, onKey, offKey)
@@ -50,11 +56,9 @@ local function render()
 
 	local container = barWidget.isVertical() and ui.column or ui.row
 	local children = {
-		ui.image({
-			path = iconPath(),
-			width = 16,
-			height = 16,
-			fit = "contain",
+		ui.glyph({
+			name = iconGlyph(),
+			color = iconColor(),
 			opacity = hasAirPods and 1 or 0.5,
 		}),
 	}
