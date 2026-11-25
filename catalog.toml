@@ -1014,8 +1014,8 @@ tags = ["launcher", "network", "utility", "development"]
 [[plugin]]
 id = "dunarand/bookmarks"
 name = "Bookmarks"
-version = "1.4.1"
-updated_at = 1792983494
+version = "1.4.2"
+updated_at = 1795567654
 added_at = 1785350683
 author = "dunarand"
 license = "MIT"
@@ -2291,8 +2291,8 @@ tags = ["bar", "media", "music", "hyprland"]
 [[plugin]]
 id = "harveywuk/airpods"
 name = "AirPods"
-version = "1.0.0"
-updated_at = 1787781769
+version = "1.0.1"
+updated_at = 1795567709
 added_at = 1787781769
 author = "harveywuk"
 license = "MIT"
@@ -4067,8 +4067,8 @@ rev = "fde41e5882c45b93defb3be06ec751b3e0ed369a"
 [[plugin]]
 id = "zumik3-del/opencode-go-usage"
 name = "Opencode Go Usage"
-version = "1.2.1"
-updated_at = 1792983494
+version = "1.2.2"
+updated_at = 1795567558
 added_at = 1790732739
 author = "zumik3-del"
 license = "MIT"
@@ -5223,15 +5223,21 @@ tags = ["bar", "panel", "service", "privacy", "utility"]
 [[plugin]]
 id = "0rgl/localsend-plus"
 name = "LocalSend Plus"
-version = "1.4.0"
-updated_at = 1794963323
+version = "1.5.0"
+updated_at = 1795567689
 added_at = 1793058341
 author = "0rgl"
 license = "MIT"
 icon = "lock-share"
 description = "Securely send and receive files, folders and clipboard with any LocalSend devices."
-plugin_api = 43
+plugin_api = 56
 tags = ["network", "utility", "bar", "panel", "launcher", "service"]
+
+[[plugin.release]]
+plugin_api = 43
+version = "1.4.0"
+updated_at = 1794963323
+rev = "0f75b06be294eb51574bdb310b80cb415a79a7c6"
 
 [[plugin]]
 id = "ankitkumar/shloka"
@@ -5827,8 +5833,8 @@ tags = ["bar", "system", "utility"]
 [[plugin]]
 id = "omerfuyar/overview"
 name = "Overview"
-version = "1.6.0"
-updated_at = 1794782432
+version = "1.7.0"
+updated_at = 1795567594
 added_at = 1794404457
 author = "omerfuyar"
 license = "MIT"
