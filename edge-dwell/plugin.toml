@@ -1,0 +1,32 @@
+id = "omid511/edge-dwell"
+name = "Niri Edge Dwell"
+version = "1.0.0"
+plugin_api = 36
+author = "omid511"
+license = "MIT"
+description = "Focus adjacent Niri columns by dwelling at a screen edge."
+icon = "mouse"
+tags = ["niri", "productivity"]
+dependencies = ["niri"]
+
+[[service]]
+id = "edge-service"
+entry = "service.luau"
+
+[[layer]]
+id = "left"
+entry = "left.luau"
+anchors = ["left", "top", "bottom"]
+width = 1
+exclusive_zone = -1
+margins = { top = 40, bottom = 12 }
+keyboard = "none"
+
+[[layer]]
+id = "right"
+entry = "right.luau"
+anchors = ["right", "top", "bottom"]
+width = 1
+exclusive_zone = -1
+margins = { top = 40, bottom = 12 }
+keyboard = "none"
