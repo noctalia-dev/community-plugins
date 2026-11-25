@@ -240,13 +240,43 @@ function M.filterTasks(token, query, cb)
 end
 
 -- Quick Add: natural-language capture parsed by Todoist itself.
--- The server answers 200 with an empty body, so success carries no task id.
+-- For single-line notes, ' // <description>' is appended so Todoist NLP populates
+-- the task description directly. For multiline notes, Quick Add's NLP parser
+-- fails on newlines and would treat ' // ' as part of the title; instead, the
+-- task is created cleanly and its description updated with full line breaks.
 function M.quickAdd(token, text, note, cb)
 	local body = { text = text }
+	local trimmedNote = nil
 	if note ~= nil and note ~= "" then
-		body.note = note
+		trimmedNote = tostring(note):match("^%s*(.-)%s*$")
+		if trimmedNote ~= "" then
+			local hasNewline = trimmedNote:find("\n", 1, true) ~= nil
+			local hasDelimiter = text:match("%s//") ~= nil or text:sub(1, 2) == "//"
+			if not hasNewline and not hasDelimiter then
+				body.text = text .. " // " .. trimmedNote
+			end
+			body.note = trimmedNote
+		else
+			trimmedNote = nil
+		end
 	end
-	M.request(token, "POST", "/tasks/quick", body, cb)
+	M.request(token, "POST", "/tasks/quick", body, function(r)
+		if not r.ok then
+			cb(r)
+			return
+		end
+		if trimmedNote ~= nil and trimmedNote:find("\n", 1, true) ~= nil and r.data and r.data.id then
+			M.updateTask(token, r.data.id, { description = trimmedNote }, function(ur)
+				if ur.ok and ur.data then
+					cb({ ok = true, status = r.status, data = ur.data })
+				else
+					cb(r)
+				end
+			end)
+		else
+			cb(r)
+		end
+	end)
 end
 
 -- Lightweight credential probe: one page of projects.

@@ -734,7 +734,7 @@ local function opTaskCreate(args, done)
 		done({ ok = false, err = { kind = "config", status = 0, message = "missing token" } })
 		return
 	end
-	local note = args and args.note
+	local note = args and (args.note or args.description)
 	-- POST is never retried: a lost response may still have created the task.
 	api.quickAdd(token, text, note, function(r)
 		if r.ok then
