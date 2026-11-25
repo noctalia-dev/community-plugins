@@ -6179,8 +6179,8 @@ tags = ["wallpaper", "music", "theming", "media"]
 [[plugin]]
 id = "omerfuyar/media-downloader"
 name = "Media Downloader"
-version = "2.1.1"
-updated_at = 1794922768
+version = "2.1.2"
+updated_at = 1795567072
 added_at = 1794922768
 author = "omerfuyar"
 license = "MIT"
