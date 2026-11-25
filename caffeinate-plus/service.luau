@@ -7,17 +7,41 @@
 -- asked is left alone by timer expiry, screen lock and plugin disable. Only an
 -- explicit "disable" turns it off regardless. The built-in caffeine holds a
 -- logind idle inhibitor (who=noctalia, why=Caffeine), which is how we read it.
+--
+-- Derived from the Caffeine Spoon by Chris Jones and Caffeine contributors
+-- (MIT); the timer and session logic are Jon Friesen's. See LICENSE.
 
 local C = require("./common.luau")
+
+local dataDir = noctalia.pluginDataDir()
+local STATE_FILE = dataDir and (dataDir .. "/state.json") or nil
+-- Touched while the lid inhibitor should be held. The unit gives up once it
+-- goes stale, so a crash, kill or shutdown can't leave the lid held for good.
+local HEARTBEAT_FILE = dataDir and (dataDir .. "/lid-heartbeat") or nil
+local HEARTBEAT_EVERY_S = 10
+local HEARTBEAT_STALE_S = 30
+
+local function shellQuote(s)
+  return "'" .. string.gsub(s, "'", "'\\''") .. "'"
+end
 
 local LID_UNIT = "caffeinate-plus-lid.service"
 local CHECK_CAFFEINE = "systemd-inhibit --list --no-pager --no-legend"
   .. " | grep -qE '^noctalia[[:space:]].*[[:space:]]idle[[:space:]]+Caffeine([[:space:]]|$)'"
 -- Lid inhibitor in a transient user unit, after bagusk99/super-caffeine (MIT).
-local LID_START = `systemctl --user reset-failed {LID_UNIT} >/dev/null 2>&1 || true; `
-  .. `systemd-run --user --quiet --collect --unit={LID_UNIT} --description='Caffeinate Plus lid inhibitor' `
-  .. `systemd-inhibit --what=handle-lid-switch --mode=block `
-  .. `--who='Caffeinate Plus' --why='Keeping awake with the lid closed' sleep infinity`
+-- Instead of `sleep infinity`, it holds the inhibitor only while the heartbeat
+-- file is fresh.
+local LID_WATCH = `while [ $(( $(date +%s) - $(stat -c %Y "$1" 2>/dev/null || echo 0) )) -lt {HEARTBEAT_STALE_S} ]; `
+  .. `do sleep 5; done`
+local LID_START = HEARTBEAT_FILE
+  and (
+    `systemctl --user reset-failed {LID_UNIT} >/dev/null 2>&1 || true; `
+    .. `systemd-run --user --quiet --collect --unit={LID_UNIT} --description='Caffeinate Plus lid inhibitor' `
+    .. `systemd-inhibit --what=handle-lid-switch --mode=block `
+    .. `--who='Caffeinate Plus' --why='Keeping awake with the lid closed' `
+    .. `sh -c {shellQuote(LID_WATCH)} caffeinate-plus-lid {shellQuote(HEARTBEAT_FILE)}`
+  )
+  or "false" -- no data dir: refuse rather than hold the lid with no way to expire
 local LID_STOP = `systemctl --user stop {LID_UNIT} >/dev/null 2>&1 || true`
 local LID_CHECK = `systemctl --user is-active --quiet {LID_UNIT}`
 
@@ -40,9 +64,7 @@ local lastCaffeinePoll = 0
 local lastLockPoll = 0
 local lockPollPending = false
 local caffeinePollPending = false
-
-local dataDir = noctalia.pluginDataDir()
-local STATE_FILE = dataDir and (dataDir .. "/state.json") or nil
+local lastHeartbeat = 0
 
 ---- Publishing and persistence
 
@@ -105,12 +127,22 @@ end
 
 ---- Lid inhibitor: held while lidEnabled and we own a session
 
+local function heartbeat()
+  if HEARTBEAT_FILE then
+    noctalia.writeFile(HEARTBEAT_FILE, tostring(os.time()))
+    lastHeartbeat = os.time()
+  end
+end
+
 local function syncLid()
   local want = lidEnabled and session
   if lidBusy or want == lidHeld then
     return
   end
   lidBusy = true
+  if want then
+    heartbeat() -- fresh before the unit's first check
+  end
   noctalia.runAsync(if want then LID_START else LID_STOP, function(_r)
     noctalia.runAsync(LID_CHECK, function(r)
       lidHeld = r.exitCode == 0
@@ -259,7 +291,15 @@ local function handle(action, arg)
   elseif action == "add" then
     local mins = tonumber(arg)
     if mins and mins == mins and math.abs(mins) < math.huge then
-      addMinutes(mins)
+      if endsAt == nil and mins > 0 then
+        -- Starting a timer turns caffeine on: read its current state first, as
+        -- `for` does, so caffeine that was already on stays someone else's.
+        refresh(function()
+          addMinutes(mins)
+        end)
+      else
+        addMinutes(mins)
+      end
     end
   elseif action == "cancel-timer" then
     cancelTimer()
@@ -344,11 +384,17 @@ function update()
   if endsAt then
     publish() -- the countdown
   end
+  if lidEnabled and session and (lidHeld or lidBusy) and now - lastHeartbeat >= HEARTBEAT_EVERY_S then
+    heartbeat()
+  end
 end
 
 ---- Startup and teardown
 
 load()
+if lidEnabled and session then
+  heartbeat() -- after a reload, before the running unit's next check
+end
 publish()
 noctalia.runAsync(LID_CHECK, function(r)
   lidHeld = r.exitCode == 0
@@ -364,17 +410,29 @@ noctalia.runAsync(LID_CHECK, function(r)
 end)
 
 function onExit(_signal, reason)
-  -- Disable/uninstall removes the controls, so release what we own, as the
-  -- Spoon's stop() does. Fire-and-forget: the VM goes away when this returns.
-  -- Reload keeps the session; state.json lets the next load pick it up.
+  -- Reload keeps the session; state.json and the heartbeat let the next load
+  -- pick it up.
+  if reason == "reload" then
+    return
+  end
+  -- Anything else (shutdown, disable, uninstall) releases the lid. Removing the
+  -- heartbeat is synchronous, so the unit exits within seconds even if the
+  -- fire-and-forget stop below never runs.
+  if HEARTBEAT_FILE then
+    noctalia.removeFile(HEARTBEAT_FILE)
+  end
+  local cmd = LID_STOP
+  -- Disable/uninstall removes the controls, so also release caffeine if we
+  -- turned it on, as the Spoon's stop() does. Shutdown leaves it: the shell
+  -- that holds it is going away anyway.
   if reason == "disable" or reason == "uninstall" then
-    local cmd = LID_STOP
     if owned then
       cmd = "noctalia msg caffeine-disable >/dev/null 2>&1; " .. cmd
     end
-    noctalia.runAsync(cmd)
     if STATE_FILE then
       noctalia.removeFile(STATE_FILE)
     end
   end
+  -- Fire-and-forget: the VM goes away when this returns.
+  noctalia.runAsync(cmd)
 end

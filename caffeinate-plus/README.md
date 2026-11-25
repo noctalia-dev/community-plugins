@@ -15,7 +15,7 @@ Keeps your session awake until you turn it off, lock the screen, or a timer runs
 
 - `noctalia` on `PATH`. The plugin drives the built-in caffeine through `noctalia msg`.
 - `systemd-inhibit` and `grep`, used to read whether caffeine is on.
-- `systemd-run`, `systemctl` and `sleep`, used for the optional lid-close inhibit.
+- `systemd-run`, `systemctl`, `sh`, `date`, `stat` and `sleep`, used for the optional lid-close inhibit.
 - A session managed by `systemd-logind`, with a working user service manager.
 
 ## Usage
@@ -82,12 +82,12 @@ noctalia msg plugin jonfriesen/caffeinate-plus:service all status         # writ
   - `noctalia msg caffeine-enable` and `caffeine-disable`, to turn caffeine on and off.
   - `systemd-inhibit --list` piped to `grep`, every 5 seconds. Noctalia's caffeine holds a logind idle inhibitor named `Caffeine`, and this is how the plugin reads whether it's on.
   - `noctalia msg status`, every 2 seconds while a session runs, to detect a screen lock.
-  - With **Ignore lid close** on: `systemd-run` starts the transient user unit `caffeinate-plus-lid.service`, which runs `systemd-inhibit --what=handle-lid-switch --mode=block sleep infinity`. `systemctl --user` checks and stops that unit.
-- **Files written:** `state.json` in the plugin's data directory, so a session survives a plugin reload. It is deleted when the plugin is disabled or uninstalled.
+  - With **Ignore lid close** on: `systemd-run` starts the transient user unit `caffeinate-plus-lid.service`, which runs `systemd-inhibit --what=handle-lid-switch --mode=block` around a small `sh` loop. The loop exits, releasing the lid, once the heartbeat file below is more than 30 seconds old. `systemctl --user` checks and stops that unit.
+- **Files written:** in the plugin's data directory, `state.json`, so a session survives a plugin reload, and `lid-heartbeat`, touched every 10 seconds while the lid is held. The service stops the lid unit and removes the heartbeat whenever it exits for anything other than a reload, so even if noctalia crashes or is killed the lid is released within about 30 seconds. `state.json` is deleted when the plugin is disabled or uninstalled.
 - **Lid-close limits:** the inhibitor doesn't block a suspend you ask for yourself (power menu, `systemctl suspend`), and the plugin doesn't change `logind.conf`. To release it by hand, run `systemctl --user stop caffeinate-plus-lid.service`.
 - **Timer:** it uses a wall-clock end time, so time spent suspended counts toward it.
 - **Compositors:** the plugin doesn't depend on the compositor. It has been tested on Umbriel.
 
 ## License
 
-Apache-2.0. The original Caffeine Spoon is by Chris Jones and contributors (MIT). The lid inhibitor follows [bagusk99/super-caffeine](https://github.com/noctalia-dev/community-plugins/tree/main/super-caffeine) (MIT).
+MIT. The timer, session and ownership logic is ported from my changes to the Caffeine Spoon. The original Spoon is by Chris Jones and Caffeine contributors (MIT), and their copyright notice is kept in `LICENSE`. The lid inhibitor follows [bagusk99/super-caffeine](https://github.com/noctalia-dev/community-plugins/tree/main/super-caffeine) (MIT).
