@@ -5,7 +5,7 @@
 
 id = "finoo125/pixel-buds"
 name = "Pixel Buds"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 24
 author = "finoo125"
 license = "MIT"
