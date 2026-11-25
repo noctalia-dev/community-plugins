@@ -13,7 +13,7 @@ editing `~/.config/umbriel/config.toml` by hand.
 ## Requirements
 
 - `umbriel` on `PATH` — the panel sends IPC messages to the running compositor.
-- `python3` — the panel runs `bin/cursor_effects.py` to edit the config file.
+- `python3` 3.11 or newer — the panel runs `bin/cursor_effects.py` to edit the config file
 
 The plugin only makes sense on Umbriel.
 

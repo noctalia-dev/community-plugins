@@ -2,8 +2,9 @@
 -- Cursor Effects: switch Umbriel cursor themes and cursor shader effects.
 -- All config editing happens in bin/cursor_effects.py; this file only renders.
 local HOME = noctalia.expandPath("~")
-local CONFIG = HOME .. "/.config/umbriel/config.toml"
-local SHADER_DIR = HOME .. "/.config/umbriel/shaders/community/cursor"
+local CONFIG_HOME = noctalia.getenv("XDG_CONFIG_HOME") or (HOME .. "/.config")
+local CONFIG = CONFIG_HOME .. "/umbriel/config.toml"
+local SHADER_DIR = CONFIG_HOME .. "/umbriel/shaders/community/cursor"
 local ICON_DIRS = { HOME .. "/.local/share/icons", HOME .. "/.icons", "/usr/share/icons" }
 local THEME_LABELS = { ["PRTS-Final"] = "PRTS Animated", ["PRTS-Final-Static"] = "PRTS Static" }
 local HELPER = noctalia.pluginDir() .. "/bin/cursor_effects.py"
@@ -86,9 +87,16 @@ local function short(text)
 	return text
 end
 
+local status = ""
+
 local function apply(kind, value)
-	local command = string.format("python3 '%s' %s '%s'", HELPER, kind, value)
-	noctalia.runAsync(command, function()
+	noctalia.runAsync({ "python3", HELPER, kind, value }, function(result)
+		if result.exitCode ~= 0 then
+			local message = result.stderr ~= "" and result.stderr or "helper failed"
+			status = message:gsub("%s+$", ""):sub(1, 160)
+		else
+			status = ""
+		end
 		render()
 	end)
 end
@@ -133,6 +141,7 @@ function render()
 			ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold", color = "on_surface" }),
 			ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
 		}),
+		status ~= "" and ui.label({ text = status, fontSize = 12, color = "error" }) or ui.label({ text = "", fontSize = 1 }),
 		ui.scroll({ flexGrow = 1, gap = 4 }, rows),
 	}))
 end

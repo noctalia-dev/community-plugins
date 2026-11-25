@@ -1,51 +1,70 @@
 #!/usr/bin/env python3
-"""Apply Umbriel cursor theme / effect selections and print current state."""
-import re
+"""Apply Umbriel cursor theme and shader effect selections.
+
+Edits the Umbriel config in place, validates the result with tomllib and replaces the
+file atomically. Requires Python 3.11+.
+"""
+from __future__ import annotations
+
+import json
+import os
 import subprocess
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
 HOME = Path.home()
-CONFIG = HOME / ".config/umbriel/config.toml"
-SHADERS = HOME / ".config/umbriel/shaders/community/cursor"
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
+CONFIG = CONFIG_DIR / "umbriel" / "config.toml"
+SHADERS = CONFIG_DIR / "umbriel" / "shaders" / "community" / "cursor"
 
 
-def read() -> str:
-    return CONFIG.read_text(encoding="utf-8")
+def toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
 
 
-def section_block(text: str, section: str) -> tuple[int, int] | None:
+def section_bounds(lines: list[str], section: str) -> tuple[int, int] | None:
     header = f"[{section}]"
-    start = text.find(header)
-    if start < 0:
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip() == header:
+            start = index
+            break
+    if start is None:
         return None
-    end = text.find("\n[", start + len(header))
-    return start, (end if end >= 0 else len(text))
-
-
-def get_key(section: str, key: str) -> str:
-    text = read()
-    block = section_block(text, section)
-    if block is None:
-        return ""
-    chunk = text[block[0]:block[1]]
-    match = re.search(rf"^\s*{re.escape(key)}\s*=\s*\"([^\"]*)\"", chunk, re.M)
-    return match.group(1) if match else ""
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        stripped = lines[index].strip()
+        if stripped.startswith("[") and not stripped.startswith("#"):
+            end = index
+            break
+    return start, end
 
 
 def set_key(text: str, section: str, key: str, literal: str) -> str:
-    block = section_block(text, section)
-    if block is None:
-        return text.rstrip() + f"\n\n[{section}]\n{key} = {literal}\n"
-    start, end = block
-    chunk = text[start:end]
-    pattern = re.compile(rf"(^\s*{re.escape(key)}\s*=\s*)[^\n]*", re.M)
-    if pattern.search(chunk):
-        chunk = pattern.sub(lambda m: m.group(1) + literal, chunk, count=1)
-    else:
-        chunk = chunk.rstrip() + f"\n{key} = {literal}\n"
-    return text[:start] + chunk + text[end:]
+    lines = text.splitlines()
+    bounds = section_bounds(lines, section)
+    if bounds is None:
+        lines.extend(["", f"[{section}]", f"{key} = {literal}"])
+        return "\n".join(lines) + "\n"
+    start, end = bounds
+    for index in range(start + 1, end):
+        stripped = lines[index].lstrip()
+        if stripped.startswith("#"):
+            continue
+        if stripped.split("=", 1)[0].strip() == key:
+            lines[index] = f"{key} = {literal}"
+            return "\n".join(lines) + "\n"
+    lines.insert(start + 1, f"{key} = {literal}")
+    return "\n".join(lines) + "\n"
+
+
+def include_entries(data: dict) -> list[str]:
+    entries = data.get("include", {}).get("files", [])
+    if not isinstance(entries, list):
+        return []
+    return [entry for entry in entries if isinstance(entry, str)]
 
 
 def ensure_include(text: str, effect: str) -> str:
@@ -54,46 +73,98 @@ def ensure_include(text: str, effect: str) -> str:
         for path in sorted(SHADERS.glob("*/effect.toml")):
             try:
                 data = tomllib.loads(path.read_text(encoding="utf-8"))
-            except Exception:
+            except tomllib.TOMLDecodeError:
                 continue
             if effect in data.get("effects", {}).get("preset", {}):
                 manifest = path
                 break
     if manifest is None:
+        raise SystemExit(f"effect manifest not found for {effect!r}")
+    rel = manifest.relative_to(CONFIG_DIR).as_posix()
+    entries = include_entries(tomllib.loads(text))
+    if rel in entries:
         return text
-    rel = manifest.relative_to(CONFIG.parent).as_posix()
-    if f'"{rel}"' in text:
-        return text
-    match = re.search(r"(?ms)^\[include\]\s*\nfiles\s*=\s*\[(.*?)\]", text)
-    if match is None:
-        return text
-    body = match.group(1).rstrip()
-    return text[:match.start(1)] + body + f'\n    "{rel}",\n' + text[match.end(1):]
+    entries.append(rel)
+    lines = text.splitlines()
+    bounds = section_bounds(lines, "include")
+    if bounds is None:
+        lines.extend(["", "[include]", "files = ["])
+        lines.extend(f"    {toml_string(entry)}," for entry in entries)
+        lines.append("]")
+        return "\n".join(lines) + "\n"
+    start, end = bounds
+    files_at = None
+    for index in range(start + 1, end):
+        if lines[index].lstrip().split("=", 1)[0].strip() == "files":
+            files_at = index
+            break
+    if files_at is None:
+        lines.insert(start + 1, "files = [")
+        for offset, entry in enumerate(entries):
+            lines.insert(start + 2 + offset, f"    {toml_string(entry)},")
+        lines.insert(start + 2 + len(entries), "]")
+        return "\n".join(lines) + "\n"
+    array_start = files_at
+    while array_start < end and "[" not in lines[array_start]:
+        array_start += 1
+    array_end = array_start
+    while array_end < end and "]" not in lines[array_end]:
+        array_end += 1
+    replacement = ["files = ["]
+    replacement.extend(f"    {toml_string(entry)}," for entry in entries)
+    replacement.append("]")
+    lines[array_start:array_end + 1] = replacement
+    return "\n".join(lines) + "\n"
 
 
+def write_atomically(text: str) -> None:
+    directory = CONFIG.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(dir=directory, prefix=".config.toml.", text=True)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(text)
+        os.replace(temporary, CONFIG)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def apply(kind: str, value: str) -> int:
+    candidate = CONFIG.read_text(encoding="utf-8")
+    if kind == "theme":
+        candidate = set_key(candidate, "input.cursor", "theme", toml_string(value))
+    elif kind == "effect":
+        if value != "off":
+            candidate = ensure_include(candidate, value)
+        candidate = set_key(candidate, "effects", "cursor", toml_string("" if value == "off" else value))
+    else:
+        print(f"unknown option: {kind}", file=sys.stderr)
+        return 2
+    try:
+        tomllib.loads(candidate)
+    except tomllib.TOMLDecodeError as error:
+        print(f"refusing to write invalid config: {error}", file=sys.stderr)
+        return 1
+    write_atomically(candidate)
+    subprocess.run(["umbriel", "msg", "config-reload"], check=False, capture_output=True)
+    if kind == "effect":
+        subprocess.run(["umbriel", "msg", "effect-cursor-set", value or "off"], check=False, capture_output=True)
+    return 0
 
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("theme:", get_key("input.cursor", "theme"))
-        print("effect:", get_key("effects", "cursor") or "off")
+        data = tomllib.loads(CONFIG.read_text(encoding="utf-8"))
+        print(data.get("input", {}).get("cursor", {}).get("theme", ""))
+        print(data.get("effects", {}).get("cursor", ""))
         return 0
-    action = sys.argv[1]
+    kind = sys.argv[1]
     value = sys.argv[2] if len(sys.argv) > 2 else ""
-    text = read()
-    if action == "theme":
-        text = set_key(text, "input.cursor", "theme", f'"{value}"')
-    elif action == "effect":
-        if value != "off":
-            text = ensure_include(text, value)
-        text = set_key(text, "effects", "cursor", '""' if value == "off" else f'"{value}"')
-    else:
-        return 1
-    CONFIG.write_text(text, encoding="utf-8")
-    subprocess.run(["umbriel", "msg", "config-reload"], check=False)
-    if action == "effect":
-        subprocess.run(["umbriel", "msg", "effect-cursor-set", value or "off"], check=False)
-    return 0
+    return apply(kind, value)
 
 
 if __name__ == "__main__":
