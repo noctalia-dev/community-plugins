@@ -3793,8 +3793,8 @@ rev = "40981ac86b563c79932b24b51ec98f4a53f905f3"
 [[plugin]]
 id = "vn1k/cursor"
 name = "Cursor"
-version = "1.0.8"
-updated_at = 1792983494
+version = "1.0.9"
+updated_at = 1795622085
 added_at = 1790164936
 author = "Vn1k"
 license = "MIT"
@@ -4156,8 +4156,8 @@ rev = "3f019fa7ee8e618d8949f397e7e17bc0888db96b"
 [[plugin]]
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.7.0"
-updated_at = 1793887975
+version = "1.7.1"
+updated_at = 1795622039
 added_at = 1790894453
 author = "lfdominguez"
 license = "MIT"
