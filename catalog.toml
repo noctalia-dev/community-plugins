@@ -6259,3 +6259,16 @@ icon = "settings"
 description = "Edit every Umbriel setting, rule and keybind, plus XDG user folders and default apps, with review and backups."
 plugin_api = 43
 tags = ["umbriel", "panel", "bar", "system", "utility"]
+
+[[plugin]]
+id = "omerfuyar/screen-control"
+name = "Screen Control"
+version = "1.6.3"
+updated_at = 1795569032
+added_at = 1795569032
+author = "omerfuyar"
+license = "MIT"
+icon = "sun"
+description = "Your screens in one place: brightness, extra dim, night light, caffeine, and the layout, modes, scale, VRR and HDR."
+plugin_api = 43
+tags = ["bar", "hyprland", "hardware", "system", "utility"]
