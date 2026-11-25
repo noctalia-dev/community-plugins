@@ -1,6 +1,6 @@
 id = "tordex/system-updater"
 name = "System Updates Manager"
-version = "2.1.1"
+version = "2.1.2"
 plugin_api = 43
 author = "tordex"
 license = "MIT"
