@@ -1073,9 +1073,175 @@ local function finishRefresh(generation, sessions)
   end)
 end
 
+-- Herdr desktop app backend. herdr-app shows terminals that herdr-core keeps
+-- running, driven by the `hc` CLI instead of `herdr`. It has no named sessions:
+-- `hc ls` lists this machine's terminals, each placed in the app as "space / tab".
+-- It is only used when `herdr` is missing, so a TUI setup keeps its behavior.
+local APP_SESSION = "herdr-app"
+local APP_ID = "herdr-app"
+local MAX_TERMINAL_LIST_BYTES = 2 * 1024 * 1024
+
+local function appMode()
+  return not noctalia.commandExists("herdr") and noctalia.commandExists("hc")
+end
+
+local function validTerminalAddress(address)
+  return type(address) == "string" and #address <= 80 and address:match("^[%w_%-]+$") ~= nil
+end
+
+local function splitWhere(where)
+  local text = trim(where)
+  local space, tab = text:match("^(.-)%s+/%s+(.+)$")
+  if space == nil then
+    return text, ""
+  end
+  return trim(space), trim(tab)
+end
+
+-- Reshapes `hc ls --json` into the snapshot collectWorkspaces() reads: a space is a
+-- workspace, a terminal is a pane, and a terminal running an agent is an agent.
+local function normalizeAppTerminals(decoded)
+  local terminals = type(decoded) == "table" and decoded.terminals or nil
+  if type(terminals) ~= "table" then
+    return nil, noctalia.tr("error.bad_terminal_list")
+  end
+
+  local snapshot = { agents = {}, panes = {} }
+  local workspaceLabels, tabLabels, spaces = {}, {}, {}
+  for _, terminal in ipairs(terminals) do
+    -- Only live terminals have a pane to focus: a parked sub-agent has none.
+    if type(terminal) == "table" and validTerminalAddress(terminal.address)
+      and (terminal.state == nil or terminal.state == "live") then
+      local address = terminal.address
+      local space, tab = splitWhere(terminal.where)
+      -- Prefixed, so a space named like an address never merges with a space-less terminal.
+      local workspaceId = space ~= "" and ("space:" .. space) or ("terminal:" .. address)
+      workspaceLabels[workspaceId] = space
+      if space ~= "" then
+        table.insert(spaces, space)
+      end
+      -- Each terminal is its own "tab" entry, so the row's second line shows its folder.
+      tabLabels[address] = basename(trim(terminal.cwd))
+
+      local entry = {
+        pane_id = address,
+        workspace_id = workspaceId,
+        tab_id = address,
+        title = tab,
+        cwd = terminal.cwd,
+      }
+      table.insert(snapshot.panes, entry)
+      if type(terminal.agent) == "string" and terminal.agent ~= "" then
+        table.insert(snapshot.agents, {
+          agent_status = terminal.status,
+          pane_id = address,
+          workspace_id = workspaceId,
+          tab_id = address,
+          title = tab,
+          agent = terminal.agent,
+          cwd = terminal.cwd,
+        })
+      end
+    end
+  end
+
+  local groups, counts, agentCount = collectWorkspaces(snapshot, workspaceLabels, tabLabels)
+  spaces = uniqueStrings(spaces)
+  return {
+    name = APP_SESSION,
+    app = true,
+    running = true,
+    is_default = true,
+    version = "",
+    projects = spaces,
+    workspaces = #groups,
+    agents = agentCount,
+    blocked = counts.blocked,
+    done = counts.done,
+    working = counts.working,
+    idle = counts.idle,
+    unknown = counts.unknown,
+    workspace_list = groups,
+    stale = false,
+    error = nil,
+    window = nil,
+  }, nil
+end
+
+-- Reuses the last app list only: a former TUI session also named herdr-app holds
+-- pane ids the app cannot focus.
+local function staleAppRow(reason)
+  local info = { name = APP_SESSION, default = true }
+  local previous = previousByName[APP_SESSION]
+  local row
+  if type(previous) == "table" and previous.app == true then
+    row = staleRow(info, reason)
+  else
+    row = stoppedRow(info)
+    row.running = true
+    row.stale = true
+    row.error = reason
+  end
+  row.app = true
+  return row
+end
+
+local function refreshApp()
+  refreshInFlight = true
+  refreshGeneration = refreshGeneration + 1
+  local generation = refreshGeneration
+  state.available = true
+  state.refreshing = true
+  state.error = nil
+  publish()
+
+  local function finish(row)
+    if generation ~= refreshGeneration then
+      return
+    end
+    state.refreshing = false
+    state.error = nil
+    state.sessions = { row }
+    recomputeTotals()
+    refreshInFlight = false
+    publish()
+
+    if refreshAgain then
+      refreshAgain = false
+      refresh()
+    end
+  end
+
+  local started = noctalia.runAsync({ "hc", "ls", "--json" }, function(result)
+    if result.exitCode ~= 0 or result.timedOut then
+      finish(staleAppRow(failureReason(result)))
+      return
+    end
+    local stdout = result.stdout or ""
+    if #stdout > MAX_TERMINAL_LIST_BYTES then
+      finish(staleAppRow(noctalia.tr("error.terminal_list_too_large")))
+      return
+    end
+    local row, parseError = normalizeAppTerminals(noctalia.json.decode(stdout))
+    finish(row or staleAppRow(parseError))
+  end, COMMAND_TIMEOUT_MS)
+
+  if not started then
+    refreshInFlight = false
+    state.refreshing = false
+    state.error = noctalia.tr("error.command_failed")
+    publish()
+  end
+end
+
 function refresh()
   if refreshInFlight then
     refreshAgain = true
+    return
+  end
+
+  if appMode() then
+    refreshApp()
     return
   end
 
@@ -1499,6 +1665,163 @@ local function deleteSession(sessionName)
   end
 end
 
+local function appActionFailed(sessionName, reason)
+  setFocusAction("error", sessionName, reason)
+  noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
+end
+
+-- `herdr-app` opens the window, or raises it when it is already open (a single
+-- instance). Wayland compositors may refuse that raise, hence focusAppWindow().
+-- The app must not inherit runAsync's output pipe, or the call waits for it to close.
+local LAUNCH_APP = "setsid -f herdr-app </dev/null >/dev/null 2>&1"
+-- pane.focus needs the app window: open it, then retry while the app starts.
+local LAUNCH_APP_AND_FOCUS = LAUNCH_APP .. " && for i in 1 2 3 4 5 6 7 8; do sleep 0.5; "
+  .. 'herdr-app do pane.focus --terminal "$1" >/dev/null 2>&1 && exit 0; done; exit 1'
+local APP_START_TIMEOUT_MS = 12000
+
+-- `setsid -f` returns before the exec, so missing binaries are checked up front.
+local function appLaunchError()
+  if not noctalia.commandExists("herdr-app") then
+    return noctalia.tr("error.app_missing")
+  end
+  if not noctalia.commandExists("setsid") then
+    return noctalia.tr("error.setsid_missing")
+  end
+  return nil
+end
+
+-- message is "action.opened" when no app window was found, "action.app_shown" when
+-- the app may already have been open.
+local function launchApp(sessionName, message)
+  local launchError = appLaunchError()
+  if launchError ~= nil then
+    appActionFailed(sessionName, launchError)
+    return
+  end
+  local started = noctalia.runAsync({ "sh", "-c", LAUNCH_APP }, function(result)
+    if result.exitCode == 0 and not result.timedOut then
+      setFocusAction("success", sessionName, noctalia.tr(message))
+    else
+      appActionFailed(sessionName, failureReason(result))
+    end
+  end, COMMAND_TIMEOUT_MS)
+  if not started then
+    appActionFailed(sessionName, noctalia.tr("error.command_failed"))
+  end
+end
+
+-- Calls back with the argv that raises the app window, or with nil and whether the
+-- window is known to be missing (false when the compositor cannot tell).
+local function appWindowFocusCommand(callback)
+  if useNiri() then
+    local started = noctalia.runAsync({ "niri", "msg", "--json", "windows" }, function(result)
+      local windows = result.exitCode == 0 and not result.timedOut
+        and noctalia.json.decode(result.stdout or "") or nil
+      for _, window in ipairs(type(windows) == "table" and windows or {}) do
+        local id = type(window) == "table" and window.app_id == APP_ID and tonumber(window.id) or nil
+        if id ~= nil and id >= 0 and id == math.floor(id) then
+          callback({ "niri", "msg", "action", "focus-window", "--id", string.format("%.0f", id) })
+          return
+        end
+      end
+      callback(nil, type(windows) == "table")
+    end, COMMAND_TIMEOUT_MS)
+    if not started then
+      callback(nil)
+    end
+  elseif trim(noctalia.getenv("SWAYSOCK")) ~= "" and noctalia.commandExists("swaymsg") then
+    callback({ "swaymsg", '[app_id="' .. APP_ID .. '"] focus' })
+  elseif noctalia.commandExists("hyprctl") then
+    -- `hyprctl dispatch` exits 0 even when no window matches, so resolve the window first.
+    local started = noctalia.runAsync({ "hyprctl", "clients", "-j" }, function(result)
+      local clients = result.exitCode == 0 and not result.timedOut
+        and noctalia.json.decode(result.stdout or "") or nil
+      for _, client in ipairs(type(clients) == "table" and clients or {}) do
+        local address = type(client) == "table" and client.class == APP_ID and client.address or nil
+        if type(address) == "string" and address:match("^0x[%da-fA-F]+$") ~= nil then
+          callback({ "hyprctl", "dispatch", "hl.dsp.focus({ window = " .. luaString("address:" .. address) .. " })" })
+          return
+        end
+      end
+      callback(nil, type(clients) == "table")
+    end, COMMAND_TIMEOUT_MS)
+    if not started then
+      callback(nil)
+    end
+  else
+    callback(nil)
+  end
+end
+
+-- Raises the app window through the compositor, and opens the app when that fails
+-- (no window, or a compositor this plugin cannot drive).
+local function focusAppWindow(sessionName)
+  appWindowFocusCommand(function(argv, noWindow)
+    if argv == nil then
+      launchApp(sessionName, noWindow and "action.opened" or "action.app_shown")
+      return
+    end
+    local started = noctalia.runAsync(argv, function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        setFocusAction("success", sessionName, noctalia.tr("action.focused"))
+      else
+        launchApp(sessionName, "action.app_shown")
+      end
+    end, COMMAND_TIMEOUT_MS)
+    if not started then
+      launchApp(sessionName, "action.app_shown")
+    end
+  end)
+end
+
+local function focusAppTerminal(sessionName, address)
+  if not validTerminalAddress(address) then
+    setFocusAction("error", sessionName, noctalia.tr("error.invalid_target"))
+    return
+  end
+  local launchError = appLaunchError()
+  if launchError ~= nil then
+    appActionFailed(sessionName, launchError)
+    return
+  end
+
+  local function focusFailed()
+    appActionFailed(sessionName, noctalia.tr("error.app_focus_failed"))
+    refresh()
+  end
+
+  -- hc lists the terminals even when the app window is closed, so a failed focus
+  -- opens the app and retries.
+  local function launchAndFocus()
+    local started = noctalia.runAsync({ "sh", "-c", LAUNCH_APP_AND_FOCUS, "sh", address }, function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        focusAppWindow(sessionName)
+      else
+        focusFailed()
+      end
+    end, APP_START_TIMEOUT_MS)
+    if not started then
+      focusFailed()
+    end
+  end
+
+  setFocusAction("busy", sessionName, noctalia.tr("action.focusing"))
+  local started = noctalia.runAsync(
+    { "herdr-app", "do", "pane.focus", "--terminal", address },
+    function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        focusAppWindow(sessionName)
+      else
+        launchAndFocus()
+      end
+    end,
+    COMMAND_TIMEOUT_MS
+  )
+  if not started then
+    appActionFailed(sessionName, noctalia.tr("error.command_failed"))
+  end
+end
+
 noctalia.state.watch("herdr.panel_open.attached", function(value)
   local wasOpen = panelOpen
   panelOpen = value == true
@@ -1537,6 +1860,18 @@ noctalia.state.watch("herdr.command", function(command)
     return
   end
 
+  -- The app has no session lifecycle: stop and delete do not apply. An unknown
+  -- session reaches here only through open_session, so row may be nil.
+  if row ~= nil and row.app == true or row == nil and appMode() then
+    if action == "open_session" then
+      setFocusAction("busy", sessionName, noctalia.tr("action.opening"))
+      focusAppWindow(sessionName)
+    elseif action == "focus_agent" then
+      focusAppTerminal(sessionName, command.pane)
+    end
+    return
+  end
+
   if action == "open_session" then
     setFocusAction("busy", sessionName, noctalia.tr("action.opening"))
     focusWindowOrOpen(sessionName)
@@ -1566,7 +1901,7 @@ function onConfigChanged()
   refresh()
 end
 
-state.available = noctalia.commandExists("herdr")
+state.available = noctalia.commandExists("herdr") or noctalia.commandExists("hc")
 state.hyprland_focus = noctalia.commandExists("hyprctl") and noctalia.commandExists("ps")
 publish()
 refresh()

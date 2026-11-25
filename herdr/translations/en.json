@@ -1,5 +1,6 @@
 {
   "action": {
+    "app_shown": "Showed the Herdr app",
     "deleted": "Session deleted",
     "deleting": "Deleting session…",
     "focused": "Focused session",
@@ -24,12 +25,15 @@
   },
   "error": {
     "ambiguous_niri_window": "That window does not belong to this HerdR session. Click the agent again and select its existing terminal window.",
+    "app_focus_failed": "The Herdr app could not show this terminal, even after opening it.",
+    "app_missing": "The Herdr app (herdr-app) is not available on PATH.",
     "bad_session_list": "HerdR returned an invalid session list.",
     "bad_snapshot": "HerdR returned an invalid session snapshot.",
+    "bad_terminal_list": "The Herdr app returned an invalid terminal list.",
     "command_failed": "HerdR command failed.",
     "command_timed_out": "HerdR command timed out.",
     "default_delete": "The default session cannot be deleted.",
-    "herdr_missing": "HerdR is not installed or is not available on PATH.",
+    "herdr_missing": "Neither HerdR (herdr) nor the Herdr app (hc) is available on PATH.",
     "invalid_session": "Invalid HerdR session name.",
     "invalid_target": "Invalid HerdR pane target.",
     "machine_failed": "This machine could not be reached.",
@@ -38,8 +42,10 @@
     "niri_picker_failed": "Could not complete Niri window selection. Retry; details were written to the Noctalia log.",
     "no_terminal": "No terminal is available to open HerdR.",
     "session_disappeared": "That HerdR session no longer exists.",
+    "setsid_missing": "setsid (util-linux) is not available on PATH, so the Herdr app cannot be opened.",
     "session_list_too_large": "The HerdR session list is too large to read safely.",
-    "snapshot_too_large": "This HerdR session snapshot is too large to read safely."
+    "snapshot_too_large": "This HerdR session snapshot is too large to read safely.",
+    "terminal_list_too_large": "The Herdr app terminal list is too large to read safely."
   },
   "notify": {
     "action_failed": "HerdR action failed",
