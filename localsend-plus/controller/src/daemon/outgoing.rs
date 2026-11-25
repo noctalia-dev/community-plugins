@@ -7,7 +7,7 @@ use crate::identity::Identity;
 use crate::rpc::{ApiError, ApiResult, Pin, TransferState};
 use bytes::Bytes;
 use futures_util::StreamExt;
-use localsend::discovery::{HttpChannel, StatefulDevice};
+use localsend::discovery::{DeviceChannel, DiscoveryHandle, HttpChannel, StatefulDevice};
 use localsend::http::client::{ClientError, LsHttpClientV2};
 use localsend::http::dto_v2::PrepareUploadRequestDtoV2;
 use localsend::model::discovery::ProtocolType;
@@ -34,6 +34,7 @@ pub(super) struct OutgoingJob {
     pub identity: Arc<Identity>,
     pub device: StatefulDevice,
     pub channel: HttpChannel,
+    pub discovery: Arc<DiscoveryHandle>,
     pub items: Vec<OutgoingItem>,
     pub pin: Option<Pin>,
     pub progress: HashMap<String, Arc<AtomicU64>>,
@@ -97,6 +98,7 @@ pub(super) async fn run_outgoing(job: OutgoingJob) {
         identity,
         device,
         channel,
+        discovery,
         items,
         pin,
         progress,
@@ -145,6 +147,7 @@ pub(super) async fn run_outgoing(job: OutgoingJob) {
             cancel.clone(),
         )
         .await;
+    report_channel(&discovery, &device, &channel, &prepared);
 
     let prepared = match prepared {
         Ok(prepared) => prepared,
@@ -303,6 +306,33 @@ async fn send_outgoing_finished(
 
 /// The receiver answers 401 both without and with a wrong PIN, and 429 to
 /// every request from an address after three wrong PINs, until it restarts.
+/// Records in discovery whether the receiver was reachable on `channel`, so
+/// the next send tries a working address first. A device often has several,
+/// such as IPv4 and link-local IPv6. Only pinned HTTPS requests are reported,
+/// and a receiver that answered with an error status counts as reachable.
+/// The failure reason is a fixed text because client errors can include the
+/// request URL, which contains the PIN.
+fn report_channel<T>(
+    discovery: &DiscoveryHandle,
+    device: &StatefulDevice,
+    channel: &HttpChannel,
+    result: &Result<T, ClientError>,
+) {
+    if channel.protocol != ProtocolType::Https {
+        return;
+    }
+    let outcome = match result {
+        Err(ClientError::Cancelled) => return,
+        Err(error) if error.is_unreachable() => Err("Receiver could not be reached".to_string()),
+        _ => Ok(()),
+    };
+    discovery.report_outbound(
+        &device.device.fingerprint,
+        DeviceChannel::Http(channel.clone()),
+        outcome,
+    );
+}
+
 fn prepare_error(error: &ClientError, pin_sent: bool) -> ApiError {
     match error {
         ClientError::StatusCode(error) => match (error.status, pin_sent) {

@@ -51,6 +51,10 @@ local ABORT_QUIET_SECONDS = 30
 -- They still wait in the panel.
 local STRANGER_ALERTS_PER_MINUTE = 3
 local strangerAlerts = {} -- os.time() of the recent alerts
+-- Seconds between the two refreshes after a wake-up. The network may still
+-- be connecting during the first one.
+local RESUME_REFRESH_DELAY_SECONDS = 10
+local resumeRefreshAt = 0
 
 local function strangerMayAlert()
   local now = os.time()
@@ -360,13 +364,20 @@ local function notifyIncoming(snap)
   local sender = incoming.sender and incoming.sender.fingerprint
   if not primed or (sender ~= nil and quietBy[sender] ~= nil) then return end
   if lib.favoriteOf(sender) == nil and not strangerMayAlert() then return end
-  local name = lib.peerLabel(incoming.sender)
+  local name, impostor = lib.peerLabel(incoming.sender)
+  -- A device that uses a favorite's name can only be accepted in the panel,
+  -- which shows a warning.
+  local actions = {}
+  if not impostor then table.insert(actions, { id = "accept", label = tr("panel.accept") }) end
+  table.insert(actions, { id = "decline", label = tr("panel.decline") })
+  local options = { actions = actions, onAction = "onIncomingAction", context = incoming.id }
   if incoming.messagePreview ~= nil then
-    noctalia.notify(tr("notify.title"), tr("notify.incoming_text", { name = name }))
+    noctalia.notify(tr("notify.title"), tr("notify.incoming_text", { name = name }), options)
   else
     noctalia.notify(
       tr("notify.title"),
-      tr("notify.incoming", { name = name, count = tostring(#(incoming.files or {})) })
+      tr("notify.incoming", { name = name, count = tostring(#(incoming.files or {})) }),
+      options
     )
   end
   lib.openPanel()
@@ -386,9 +397,23 @@ local function notifyTransfer(t, firstSeen)
   elseif t.state == "completed" then
     if t.direction == "incoming" and t.textMessage then
       noctalia.notify(tr("notify.title"), tr("notify.text_copied", { name = name }))
+    elseif t.direction == "incoming" then
+      local first = t.files and t.files[1]
+      local path = first and first.destinationPath
+      local options = nil
+      if path ~= nil then
+        options = {
+          actions = {
+            { id = "open_folder", label = tr("panel.open_folder") },
+            { id = "show_file", label = tr("notify.show_file") },
+          },
+          onAction = "onReceivedAction",
+          context = path,
+        }
+      end
+      noctalia.notify(tr("notify.title"), tr("notify.received", { name = name, count = count }), options)
     else
-      local key = t.direction == "incoming" and "notify.received" or "notify.sent"
-      noctalia.notify(tr("notify.title"), tr(key, { name = name, count = count }))
+      noctalia.notify(tr("notify.title"), tr("notify.sent", { name = name, count = count }))
     end
   elseif t.state == "failed" then
     noctalia.notifyError(
@@ -777,6 +802,10 @@ noctalia.state.watch("restart", restartNow)
 function update()
   ticks = ticks + 1
   if picking and os.time() - pickStarted > PICK_TIMEOUT_SECONDS then picking = false end
+  if resumeRefreshAt > 0 and os.time() >= resumeRefreshAt then
+    resumeRefreshAt = 0
+    if phase == "running" then lib.rpc({ "refresh" }, poll) end
+  end
   if tempUntil > 0 and os.time() >= tempUntil then
     tempUntil = 0
     visSeq = visSeq + 1
@@ -815,6 +844,41 @@ function onConfigChanged()
     restart() -- the new daemon starts in the current mode
   else
     applyVisibility()
+  end
+end
+
+-- Handles the buttons of an incoming request notification. The context is
+-- the request id. A request that was already answered or withdrawn is
+-- ignored, and the controller would reject it anyway.
+function onIncomingAction(action, requestId)
+  if (action ~= "accept" and action ~= "decline") or requestId ~= seenIncoming then return end
+  lib.rpc({ action, "--request", requestId }, function(ok, _, err)
+    if not ok then noctalia.notifyError(tr("notify.title"), lib.errorText(err)) end
+    poll()
+  end)
+end
+
+-- Handles the buttons of a received files notification. The context is the
+-- path of the first file.
+function onReceivedAction(action, path)
+  if type(path) ~= "string" or path:sub(1, 1) ~= "/" then return end
+  if action == "open_folder" then
+    noctalia.openPath(lib.dirname(path))
+  elseif action == "show_file" then
+    noctalia.revealPath(path)
+  end
+end
+
+-- After sleep the device list is out of date and the network may still be
+-- connecting, so the service refreshes it now and again after
+-- RESUME_REFRESH_DELAY_SECONDS. A daemon that failed to start is restarted
+-- without waiting for the backoff.
+function onResume()
+  if phase == "running" then
+    lib.rpc({ "refresh" }, poll)
+    resumeRefreshAt = os.time() + RESUME_REFRESH_DELAY_SECONDS
+  elseif phase == "failed" then
+    restartNow()
   end
 end
 

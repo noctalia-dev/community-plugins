@@ -59,6 +59,7 @@
     "pin_required": "{name} prosi o PIN. Wpisz go w panelu, żeby wysłać ponownie.",
     "received": "Odebrano pliki od {name}: {count}",
     "sent": "Wysłano pliki do {name}: {count}",
+    "show_file": "Pokaż plik",
     "temp_ended": "Koniec tymczasowej widoczności. Teraz: {mode}",
     "text_copied": "Wiadomość od {name} skopiowana do schowka",
     "title": "LocalSend Plus"
