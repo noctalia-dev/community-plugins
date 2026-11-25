@@ -696,6 +696,11 @@ local function refreshContainers(onComplete)
 
   runCli({ "ps", "-a", "--no-trunc", "--format", "{{json .}}" }, function(result)
     pcall(function()
+      local previousStats = {}
+      for _, c in ipairs(snapshot.containers or {}) do
+        if c.id and c.id ~= "" then previousStats[c.id] = { cpu = c.cpu, ram = c.ram } end
+      end
+
       local containers = {}
       if result and result.exitCode == 0 then
         for line in string.gmatch(result.stdout or "", "[^\r\n]+") do
@@ -786,6 +791,7 @@ local function refreshContainers(onComplete)
                 end
               end
 
+              local prev = (state == "running") and previousStats[id] or nil
               table.insert(containers, {
                 id                = id,
                 name              = name,
@@ -803,8 +809,8 @@ local function refreshContainers(onComplete)
                 networksList      = netsList,
                 mounts            = table.concat(mountsList, ", "),
                 mountsList        = mountsList,
-                cpu               = "0%",
-                ram               = "0B",
+                cpu               = prev and prev.cpu or "0%",
+                ram               = prev and prev.ram or "0B",
                 rootless          = isRootless,
               })
             end
@@ -909,6 +915,9 @@ refreshContainerStats = function(onComplete)
         if s then
           c.cpu = s.cpu
           c.ram = s.ram
+        elseif c.state ~= "running" then
+          c.cpu = "0%"
+          c.ram = "0B"
         end
       end
 
