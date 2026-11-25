@@ -38,8 +38,8 @@ Open one plugin's settings page directly, such as from a key:
 noctalia msg panel-toggle omerfuyar/plugin-hub:panel omerfuyar/keyboard
 ```
 
-The panel lists Noctalia, each plugin you use, and your own commands. Search filters them
-all.
+The panel lists Noctalia, each plugin you use, and your own commands, each with its icon.
+Search filters them all.
 
 - **Plugins.** Each enabled plugin is listed, and each one the hub saw enabled before, so a
   plugin you switch off here can be switched on again. A plugin you remove in Noctalia's
