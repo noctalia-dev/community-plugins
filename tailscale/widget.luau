@@ -4,11 +4,11 @@ local PANEL_ID = "davemhammer/tailscale:manager"
 local STATE_KEY = "ts_snapshot"
 local COMMAND_KEY = "ts_command"
 
--- Brand mark (Simple Icons Tailscale 3×3 dots), tinted for connection state.
-local COLOR_CONNECTED = "#73c936"
+-- Brand mark as the Tabler 3×3 dots glyph. Connected uses the bar's icon
+-- colour (on_surface) so it matches the other widgets; stopped is dimmed.
+local COLOR_CONNECTED = "on_surface"
 local COLOR_DISCONNECTED = "on_surface_variant"
-local ICON_ON = "assets/tailscale-green.png"
-local ICON_OFF = "assets/tailscale-grey.png"
+local GLYPH = "grid-dots"
 
 local snapshot = noctalia.state.get(STATE_KEY) or {
   available = false,
@@ -51,7 +51,7 @@ local function render()
     barWidget.setVisible(true)
   end
 
-  -- Connected = green logo, stopped = grey logo (never red) — except
+  -- Connected = bar-coloured logo, stopped = dimmed logo (never red) — except
   -- with flag_problem on, where the one non-connected state earns the
   -- error colour, since that setting exists to make a permanently-
   -- visible widget read as an alert.
@@ -59,11 +59,10 @@ local function render()
   local color = running and COLOR_CONNECTED or COLOR_DISCONNECTED
 
   local children = {
-    ui.image({
-      path = running and ICON_ON or ICON_OFF,
-      width = 16,
-      height = 16,
-      fit = "contain",
+    ui.glyph({
+      name = GLYPH,
+      -- Unset colour inherits the bar's widget icon colour.
+      color = not running and COLOR_DISCONNECTED or nil,
     }),
   }
 
