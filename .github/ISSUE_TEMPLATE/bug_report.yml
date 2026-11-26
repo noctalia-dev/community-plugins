@@ -309,6 +309,7 @@ body:
         - shipyard
         - shloka
         - sing-box-status
+        - sleep_timer
         - social-block
         - sonolith
         - sony_headphones
@@ -350,6 +351,7 @@ body:
         - todoist-manager
         - token-monitor
         - topgrade-wrapper
+        - tuxedo-control-center
         - typer
         - typing-stats
         - udiskie
