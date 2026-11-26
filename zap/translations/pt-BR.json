@@ -1,0 +1,196 @@
+{
+  "bar": {
+    "no_unread": "Nenhuma mensagem não lida",
+    "unread": {
+      "one": "{count} mensagem não lida",
+      "other": "{count} mensagens não lidas"
+    }
+  },
+  "status": {
+    "connecting": "Conectando…",
+    "qr": "Aguardando a leitura do QR code",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "logged_out": "Não conectado",
+    "error": "Problema de conexão",
+    "missing": "noctalia-zapd não encontrado"
+  },
+  "detail": {
+    "reconnecting": "Reconectando…",
+    "keepalive_timeout": "Conexão lenta, aguardando…",
+    "paired": "Celular vinculado, carregando conversas…",
+    "qr_timeout": "O QR code expirou.",
+    "connect_failed": "Não deu para falar com o WhatsApp. Confira a internet.",
+    "pair_failed": "A vinculação falhou. Tente de novo.",
+    "logged_out_remotely": "Este aparelho foi removido pelo celular.",
+    "stream_replaced": "O WhatsApp foi aberto em outro lugar com esta sessão.",
+    "temporary_ban": "O WhatsApp bloqueou este número temporariamente.",
+    "client_outdated": "O WhatsApp recusou esta versão do cliente. Atualize o noctalia-zapd.",
+    "connect_failure": "O WhatsApp recusou a conexão.",
+    "daemon_stopped": "O noctalia-zapd parou. Reiniciando…",
+    "data_dir": "Não deu para abrir a pasta de dados do plugin.",
+    "start_failed": "Não deu para iniciar o noctalia-zapd.",
+    "socket": "Outra cópia do noctalia-zapd está rodando. Reiniciando…"
+  },
+  "kind": {
+    "image": "Foto",
+    "video": "Vídeo",
+    "audio": "Áudio",
+    "document": "Documento",
+    "sticker": "Figurinha",
+    "location": "Localização",
+    "contact": "Contato",
+    "poll": "Enquete"
+  },
+  "panel": {
+    "qr": {
+      "title": "Conectar este computador",
+      "step1": "1. Abra o WhatsApp no celular.",
+      "step2": "2. Vá em Configurações → Aparelhos conectados → Conectar um aparelho.",
+      "step3": "3. Aponte o celular para este código.",
+      "warning": "Este cliente não é oficial. Se puder, use um número reserva."
+    },
+    "login": {
+      "title": "WhatsApp não está conectado",
+      "button": "Mostrar QR code"
+    },
+    "retry": "Tentar de novo",
+    "missing": {
+      "title": "O noctalia-zapd não está instalado",
+      "body": "Instale o auxiliar ou informe o caminho dele nas configurações do plugin.",
+      "settings": "Abrir configurações"
+    },
+    "list": {
+      "title": "Conversas",
+      "search": "Buscar conversas",
+      "empty": "Nenhuma conversa ainda. Elas aparecem conforme o WhatsApp sincroniza.",
+      "no_match": "Nenhuma conversa corresponde à busca.",
+      "more": "Mostrando as conversas mais recentes. Use a busca para achar as antigas.",
+      "archived_count": "Arquivadas ({count})",
+      "archived_title": "Arquivadas",
+      "back": "Voltar às conversas"
+    },
+    "chat": {
+      "pick": "Escolha uma conversa à esquerda.",
+      "today": "Hoje",
+      "truncated": "Cortada · {time}",
+      "loading": "Carregando mensagens…",
+      "history_error": "Não deu para carregar as mensagens.",
+      "empty": "Nenhuma mensagem guardada desta conversa ainda.",
+      "placeholder": "Escreva uma mensagem",
+      "offline": "Sem conexão",
+      "send": "Enviar (Enter)",
+      "send_error": "A mensagem não foi enviada. Tente de novo.",
+      "close": "Fechar conversa",
+      "updating": "Atualizando…",
+      "updating_media": "Buscando mídias antigas no celular…",
+      "unknown": "Desconhecido",
+      "you": "Você",
+      "reply": "Responder",
+      "cancel_reply": "Cancelar resposta",
+      "deleted": "Esta mensagem foi apagada",
+      "edited": "editada · {time}",
+      "loading_older": "Carregando mensagens antigas…",
+      "load_older": "Carregar mensagens antigas",
+      "limit_older": "As mensagens mais antigas estão no celular.",
+      "start": "Início da conversa",
+      "typing": "digitando…",
+      "typing_named": "{name} está digitando…",
+      "recording": "gravando áudio…",
+      "recording_named": "{name} está gravando áudio…"
+    },
+    "logout": {
+      "button": "Sair",
+      "confirm": "Desconectar este computador do WhatsApp? As conversas locais serão apagadas.",
+      "cancel": "Cancelar"
+    },
+    "error": {
+      "command": "O comando falhou. Veja o log."
+    },
+    "media": {
+      "open": "Abrir",
+      "play": "Tocar",
+      "stop": "Parar",
+      "loading": "Baixando…",
+      "unavailable": "Não está mais disponível nos servidores do WhatsApp.",
+      "offline": "Conecte para baixar.",
+      "no_player": "Instale o mpv para tocar áudios.",
+      "failed": "Não deu para baixar.",
+      "not_stored": "Esta mídia foi guardada antes do suporte a downloads. Abra pelo celular.",
+      "play_sound": "Tocar som"
+    },
+    "compose": {
+      "attach": "Anexar arquivo",
+      "paste": "Colar imagem",
+      "record": "Gravar áudio",
+      "remove": "Remover anexo",
+      "cancel_record": "Descartar gravação",
+      "send_record": "Enviar áudio",
+      "no_portal": "Sem seletor de arquivos. Instale o xdg-desktop-portal.",
+      "busy": "Já está em uso. Feche a outra janela antes.",
+      "no_wl_paste": "Instale o wl-clipboard para colar imagens.",
+      "no_image": "Não há imagem na área de transferência.",
+      "no_recorder": "Instale o pipewire para gravar áudio.",
+      "no_ffmpeg": "Instale o ffmpeg para gravar áudio.",
+      "too_large": "O arquivo é grande demais. O limite é 100 MB.",
+      "send_failed": "O arquivo não foi enviado.",
+      "failed": "Algo deu errado. Tente de novo."
+    }
+  },
+  "settings": {
+    "hide_when_empty": {
+      "label": "Ocultar quando não houver novidade",
+      "description": "Esconde o ícone da barra quando não há mensagens não lidas."
+    },
+    "history_limit": {
+      "label": "Mensagens guardadas por conversa",
+      "description": "Quantas mensagens recentes guardar de cada conversa na sincronização."
+    },
+    "daemon_path": {
+      "label": "Caminho do noctalia-zapd",
+      "description": "Caminho completo do auxiliar. Deixe vazio para procurar no PATH e em ~/.local/bin."
+    },
+    "demo": {
+      "label": "Modo demonstração",
+      "description": "Mostra conversas e mensagens fictícias sem conectar ao WhatsApp. A sessão real não é alterada."
+    },
+    "panel_size": {
+      "label": "Tamanho do painel",
+      "description": "Tamanho da janela que abre pela barra.",
+      "options": {
+        "compact": "Compacto (720 × 520)",
+        "normal": "Normal (900 × 640)",
+        "large": "Grande (1200 × 800)",
+        "full": "Tela cheia"
+      }
+    },
+    "notifications": {
+      "label": "Notificações",
+      "description": "Mostra uma notificação para mensagens novas. Conversas silenciadas ficam quietas."
+    },
+    "notify_private": {
+      "label": "Esconder o texto nas notificações",
+      "description": "Mostra só \"Nova mensagem\" em vez do texto."
+    },
+    "download_dir": {
+      "label": "Pasta de downloads",
+      "description": "Onde ficam as fotos, vídeos e documentos que você abrir. Vazio usa Downloads/WhatsApp. Áudios ficam num cache privado."
+    },
+    "media_cache_mb": {
+      "label": "Cache de áudio (MB)",
+      "description": "Espaço para os áudios tocados. Os mais antigos são apagados quando enche."
+    }
+  },
+  "notify": {
+    "group_title": "{sender} · {chat}",
+    "hidden": "Nova mensagem",
+    "reply": "Responder"
+  },
+  "badge": {
+    "many": "{count}+"
+  },
+  "size": {
+    "kb": "{n} KB",
+    "mb": "{n} MB"
+  }
+}
