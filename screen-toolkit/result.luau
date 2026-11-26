@@ -699,11 +699,12 @@ function onClose()
 end
 
 noctalia.state.watch("recordState", function(v)
-  if recordState == "ready" and v ~= "ready" then
+  local wasReady = recordState == "ready"
+  recordState = v or "idle"
+  if wasReady and recordState ~= "ready" then
     panel.close()
     return
   end
-  recordState = v or "idle"
   if panelOpen then render() end
 end)
 noctalia.state.watch("recordFormat", function(v) recordFormat = v or "mp4"; if panelOpen then render() end end)
