@@ -151,7 +151,9 @@ phone screen for privacy; no desktop or phone messages are included.
 
 Source and regression tests: [AndroidConnect v5](https://github.com/demencia89/noctalia-androidconnect-v5).
 Version 2.4.2 preserves the preview when you reselect a phone and starts wireless
-reconnection sooner when you switch devices. The v4 QML plugin remains a separate project.
+reconnection sooner when you switch devices. The revised package outlines the header
+and action and status icons, and resumes device updates after a plugin reload.
+The v4 QML plugin remains a separate project.
 
 Licensed under GPL-2.0-only; see [LICENSE](LICENSE). Based on WerWolv's original
 [Noctalia KDE Connect plugin](https://github.com/WerWolv/noctalia-kde-connect),

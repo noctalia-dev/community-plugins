@@ -1045,6 +1045,8 @@ class Bridge:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", required=True, type=Path)
+    parser.add_argument("--wait-for-lock", action="store_true",
+                        help="Wait for the previous Noctalia companion to finish shutting down")
     args = parser.parse_args()
     runtime = os.environ.get("XDG_RUNTIME_DIR", "")
     if not runtime or not Path(runtime).is_absolute():
@@ -1056,7 +1058,10 @@ def main():
     args.data.mkdir(parents=True, exist_ok=True)
     with (args.data / "companion.lock").open("a") as lock:
         try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # A service reload can launch the new stream while its predecessor
+            # is still finishing recordings, probes, or preview cleanup.
+            flags = fcntl.LOCK_EX if args.wait_for_lock else fcntl.LOCK_EX | fcntl.LOCK_NB
+            fcntl.flock(lock, flags)
         except BlockingIOError:
             parser.error("AndroidConnect is already running")
         with tempfile.TemporaryDirectory(prefix="androidconnect-", dir=runtime) as directory:

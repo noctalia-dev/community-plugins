@@ -20,6 +20,7 @@ local SIZE_FACTORS = { 0.60, 0.75, 1.0 }
 local SIZE_NAMES = { "small", "medium", "large" }
 local PANEL_INSET, HEADER_HEIGHT = 21, 64
 local SECTION_GAP, BODY_GAP = 14, 24
+local PANEL_OUTLINE = "outline_variant/0.16"
 local NETWORK_GLYPHS = {
   USB = "usb", ["WI-FI"] = "wifi", ["5G"] = "signal-5g", NR = "signal-5g",
   LTE = "signal-lte", ["4G"] = "signal-4g", HSPA = "signal-h", ["HSPA+"] = "signal-h",
@@ -180,6 +181,7 @@ local function metric(glyph, title, value, color, detail)
   return ui.row({ key = title, height = ({ 46, 60, 76 })[sizeIndex], gap = 12, align = "center" }, {
     ui.column({ width = badgeSize, height = badgeSize, minWidth = badgeSize,
       align = "center", justify = "center", radius = math.round(badgeSize * 0.3), fill = "surface_container/0.65",
+      border = PANEL_OUTLINE, borderWidth = 1,
     }, {
       ui.glyph({ name = glyph, size = math.round(badgeSize * 0.52), color = "primary" }),
     }),
@@ -194,15 +196,17 @@ local function quickAction(key, glyph, action, enabled, active)
   local allowed = enabled ~= false
   local hovered = allowed and hoveredControl == key
   local badgeSize = ({ 30, 36, 44 })[sizeIndex]
+  local outline = if active then "primary/0.4" elseif hovered then "primary/0.22" else PANEL_OUTLINE
   return ui.column({ key = key, flexGrow = 1, minWidth = 0, height = ({ 70, 86, 108 })[sizeIndex],
     padding = 8, gap = 6, align = "center", justify = "center", radius = 18,
     fill = if active then "primary/0.14" elseif hovered then "primary/0.08" else "surface_container/0.45",
-    border = if active then "primary/0.4" elseif hovered then "primary/0.22" else "outline_variant/0.16", borderWidth = 1,
+    border = outline, borderWidth = 1,
     opacity = if allowed then 1 else 0.5, tooltip = tr(key),
     onClick = if allowed then action else nil,
     onHover = if allowed then "onControlHover" else nil,
   }, {
     ui.column({ width = badgeSize, height = badgeSize, radius = badgeSize / 2,
+      border = outline, borderWidth = 1,
       fill = if active then "primary/0.22" elseif hovered then "primary/0.14" else "surface_container/0.65",
       align = "center", justify = "center",
     }, {
@@ -492,7 +496,7 @@ render = function()
   -- The host supplies 14px; v4's nested 9 + 6 + 6 margins total 21px.
   panel.render(ui.column({ padding = PANEL_INSET - 14, gap = SECTION_GAP, align = "stretch" }, {
     ui.row({ key = "header", height = HEADER_HEIGHT, gap = 10, paddingH = 12, paddingV = 10, align = "center",
-      fill = "surface_container/0.5", radius = 22, borderWidth = 0 }, {
+      fill = "surface_container/0.5", radius = 22, border = PANEL_OUTLINE, borderWidth = 1 }, {
       ui.column({ key = "phone-size", width = 34, height = 34, align = "center", justify = "center",
         onClick = "onCyclePhoneSize", onHover = "onSizeHover",
         tooltip = tr("size.tooltip") .. " " .. tr("size." .. SIZE_NAMES[sizeIndex])
