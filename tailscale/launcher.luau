@@ -2,9 +2,13 @@
 -- /ts launcher: Tailscale peers, exit nodes, connect/disconnect.
 
 local STATE_KEY = "ts_snapshot"
+local EXIT_NODES_KEY = "ts_exit_nodes"
 local COMMAND_KEY = "ts_command"
 local PANEL_ID = "davemhammer/tailscale:manager"
 local MAX_ROWS = 40
+
+local parseExitNodes = require("./exit_nodes.luau")
+local exitListOutput = noctalia.state.get(EXIT_NODES_KEY)
 
 local snapshot = noctalia.state.get(STATE_KEY) or {
   available = false,
@@ -12,7 +16,6 @@ local snapshot = noctalia.state.get(STATE_KEY) or {
   running = false,
   installed = false,
   peers = {},
-  exitNodes = {},
   onlineCount = 0,
   peerCount = 0,
   backendState = "",
@@ -25,6 +28,10 @@ noctalia.state.watch(STATE_KEY, function(value)
   if type(value) == "table" then
     snapshot = value
   end
+end)
+
+noctalia.state.watch(EXIT_NODES_KEY, function(output)
+  exitListOutput = output
 end)
 
 local function trim(s)
@@ -188,7 +195,7 @@ local function findPeer(id)
 end
 
 local function findExit(id)
-  for _, e in ipairs(snapshot.exitNodes or {}) do
+  for _, e in ipairs(parseExitNodes(exitListOutput)) do
     if e.id == id then return e end
   end
   return nil
@@ -229,7 +236,7 @@ local function listExits(filter)
       score = 200,
     },
   }
-  for _, e in ipairs(snapshot.exitNodes or {}) do
+  for _, e in ipairs(parseExitNodes(exitListOutput)) do
     local sc = scoreText(filter, e.name, e.host, e.ip, e.status)
     if sc then
       table.insert(rows, {

@@ -2,6 +2,7 @@
 -- Tailscale backend: status, peers, exit nodes, preference toggles.
 
 local STATE_KEY = "ts_snapshot"
+local EXIT_NODES_KEY = "ts_exit_nodes"
 local COMMAND_KEY = "ts_command"
 local RESULT_KEY = "ts_action_result"
 
@@ -24,7 +25,6 @@ local snapshot = {
   version = "",
   health = {},
   peers = {},
-  exitNodes = {},
   onlineCount = 0,
   peerCount = 0,
   offlineCount = 0,
@@ -46,6 +46,8 @@ local refreshGeneration = 0
 local refreshPending = false
 local refreshAgain = false
 local refreshStartedAt = 0
+local exitListOutput
+local exitListPending = false
 local actionBusy = false
 local dataSignature = ""
 local prevOnline = {} -- id -> true
@@ -297,14 +299,6 @@ local function parseStatus(data)
           break
         end
       end
-      if exitNode == "" or exitNode:match("^%d") then
-        for _, p in ipairs(peers) do
-          if p.id == eid then
-            exitNode = p.name
-            break
-          end
-        end
-      end
     end
   end
 
@@ -327,50 +321,30 @@ local function parseStatus(data)
     peerCount = #peers,
     offlineCount = offlineCount,
     exitNode = exitNode,
-    exitNodeOnline = exitOnline,
+    exitNodeOnline = running and exitOnline,
     advertiseExitNode = selfInfo.ExitNodeOption == true,
   }
 end
 
-local function parseExitNodeList(stdout)
-  local list = {}
-  for line in (tostring(stdout or "") .. "\n"):gmatch("(.-)\n") do
-    line = trim(line)
-    if line ~= ""
-      and not line:match("^IP%s")
-      and not line:match("^#")
-      and not line:match("^To ")
-      and not line:match("^%-%-")
-    then
-      -- columns: IP HOSTNAME COUNTRY CITY STATUS...
-      local ip, host, rest = line:match("^(%S+)%s+(%S+)%s+(.*)$")
-      if ip and host and ip:match("^%d+%.%d+") then
-        local status = trim(rest)
-        local selected = status:lower():find("selected", 1, true) ~= nil
-        local offline = status:lower():find("offline", 1, true) ~= nil
-        table.insert(list, {
-          id = ip,
-          ip = ip,
-          name = host:match("^([^.]+)") or host,
-          host = host,
-          status = status,
-          selected = selected,
-          online = not offline,
-          ok = not offline,
-        })
-      end
-    end
+local function publishExitList(output)
+  if output ~= exitListOutput then
+    noctalia.state.set(EXIT_NODES_KEY, output)
+    exitListOutput = output
   end
-  table.sort(list, function(a, b)
-    if a.selected ~= b.selected then
-      return a.selected
+end
+
+local function refreshExitList(bin)
+  if exitListPending then
+    return
+  end
+  -- Keep the catalog off the status/action path. Passing the CLI output as a
+  -- string avoids serializing a table of exit-node objects in the service.
+  exitListPending = runTs({ bin, "exit-node", "list" }, function(result)
+    exitListPending = false
+    if result and result.exitCode == 0 and tsBin() == bin then
+      publishExitList(result.stdout or "")
     end
-    if a.online ~= b.online then
-      return a.online
-    end
-    return a.name < b.name
-  end)
-  return list
+  end, 15000)
 end
 
 local function routesIncludeDefaultExit(routes)
@@ -444,10 +418,9 @@ local function forceUnstick(reason)
   publishSnapshot()
 end
 
-local function applyBag(statusData, prefsData, exitStdout, errors)
+local function applyBag(statusData, prefsData, errors)
   local st = {}
   local prefs = {}
-  local exits = {}
 
   local okS, errS = pcall(function()
     st = parseStatus(statusData or {})
@@ -462,23 +435,6 @@ local function applyBag(statusData, prefsData, exitStdout, errors)
   end)
   if not okP then
     table.insert(errors, "prefs parse: " .. tostring(errP))
-  end
-
-  local okE, errE = pcall(function()
-    exits = parseExitNodeList(exitStdout)
-  end)
-  if not okE then
-    table.insert(errors, "exit list: " .. tostring(errE))
-  end
-
-  -- resolve exit node display from selected exit list entry
-  local exitLabel = st.exitNode or ""
-  for _, e in ipairs(exits) do
-    if e.selected then
-      exitLabel = e.name
-      st.exitNodeOnline = e.online
-      break
-    end
   end
 
   pcall(notifyPeerChanges, st.peers or {})
@@ -502,11 +458,10 @@ local function applyBag(statusData, prefsData, exitStdout, errors)
   snapshot.version = st.version or ""
   snapshot.health = st.health or {}
   snapshot.peers = st.peers or {}
-  snapshot.exitNodes = exits
   snapshot.onlineCount = st.onlineCount or 0
   snapshot.peerCount = st.peerCount or 0
   snapshot.offlineCount = st.offlineCount or 0
-  snapshot.exitNode = exitLabel
+  snapshot.exitNode = st.exitNode or ""
   snapshot.exitNodeOnline = st.exitNodeOnline == true
   snapshot.shieldsUp = prefs.shieldsUp == true
   snapshot.acceptRoutes = prefs.acceptRoutes == true
@@ -566,7 +521,7 @@ refreshAll = function()
     snapshot.loading = false
     snapshot.error = noctalia.tr("result.missing")
     snapshot.peers = {}
-    snapshot.exitNodes = {}
+    publishExitList("")
     snapshot.onlineCount = 0
     snapshot.peerCount = 0
     refreshPending = false
@@ -582,8 +537,8 @@ refreshAll = function()
   end
   noctalia.setUpdateInterval(1000)
 
-  local pending = 3
-  local bag = { status = nil, prefs = nil, exits = "" }
+  local pending = 2
+  local bag = { status = nil, prefs = nil }
   local errors = {}
   local finished = false
 
@@ -596,7 +551,7 @@ refreshAll = function()
       return
     end
     finished = true
-    local okApply, errApply = pcall(applyBag, bag.status, bag.prefs, bag.exits, errors)
+    local okApply, errApply = pcall(applyBag, bag.status, bag.prefs, errors)
     if not okApply then
       noctalia.log(`tailscale: apply failed: {tostring(errApply)}`)
       snapshot.loading = false
@@ -654,20 +609,7 @@ refreshAll = function()
     finish()
   end, 15000)
 
-  runTs({ bin, "exit-node", "list" }, function(result)
-    if generation ~= refreshGeneration then
-      return
-    end
-    local okInner, errInner = pcall(function()
-      if result and result.exitCode == 0 then
-        bag.exits = result.stdout or ""
-      end
-    end)
-    if not okInner then
-      table.insert(errors, "exits: " .. tostring(errInner))
-    end
-    finish()
-  end, 15000)
+  refreshExitList(bin)
 end
 
 local function finishAction(command, ok, message)
@@ -866,8 +808,6 @@ end
 
 function onIpc(event, payload)
   if event == "refresh" then
-    refreshPending = false
-    refreshStartedAt = 0
     refreshAll()
   elseif event == "up" then
     executeAction({ action = "up", requestId = "ipc-up" })
