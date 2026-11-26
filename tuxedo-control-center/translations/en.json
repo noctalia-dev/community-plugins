@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "show_default_profiles": {
+      "label": "Show default profiles",
+      "description": "Show TUXEDO Control Center's built-in legacy profiles alongside your custom profiles."
+    }
+  }
+}
