@@ -2,7 +2,14 @@
 -- Cursor Effects: switch Umbriel cursor themes and cursor shader effects.
 -- All config editing happens in bin/cursor_effects.py; this file only renders.
 local HOME = noctalia.expandPath("~")
-local CONFIG_HOME = noctalia.getenv("XDG_CONFIG_HOME") or (HOME .. "/.config")
+local function config_home()
+	local value = noctalia.getenv("XDG_CONFIG_HOME")
+	if value == nil or value == "" then
+		return HOME .. "/.config"
+	end
+	return value
+end
+local CONFIG_HOME = config_home()
 local CONFIG = CONFIG_HOME .. "/umbriel/config.toml"
 local SHADER_DIR = CONFIG_HOME .. "/umbriel/shaders/community/cursor"
 local ICON_DIRS = { HOME .. "/.local/share/icons", HOME .. "/.icons", "/usr/share/icons" }

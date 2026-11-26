@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -24,11 +25,18 @@ def toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+HEADER = re.compile(r"^\[\s*([^\[\]]+?)\s*\]\s*(?:#.*)?$")
+
+
+def header_section(line: str) -> str | None:
+    match = HEADER.match(line.strip())
+    return match.group(1).strip() if match else None
+
+
 def section_bounds(lines: list[str], section: str) -> tuple[int, int] | None:
-    header = f"[{section}]"
     start = None
     for index, line in enumerate(lines):
-        if line.strip() == header:
+        if header_section(line) == section:
             start = index
             break
     if start is None:
@@ -80,7 +88,7 @@ def ensure_include(text: str, effect: str) -> str:
                 break
     if manifest is None:
         raise SystemExit(f"effect manifest not found for {effect!r}")
-    rel = manifest.relative_to(CONFIG_DIR).as_posix()
+    rel = manifest.relative_to(CONFIG.parent).as_posix()
     entries = include_entries(tomllib.loads(text))
     if rel in entries:
         return text
@@ -117,6 +125,19 @@ def ensure_include(text: str, effect: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def run_umbriel(arguments: list[str]) -> bool:
+    try:
+        result = subprocess.run(["umbriel"] + arguments, capture_output=True, text=True)
+    except OSError as error:
+        print(f"cannot run umbriel: {error}", file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout or f"umbriel exited with {result.returncode}").strip()
+        print(message, file=sys.stderr)
+        return False
+    return True
+
+
 def write_atomically(text: str) -> None:
     directory = CONFIG.parent
     directory.mkdir(parents=True, exist_ok=True)
@@ -150,9 +171,10 @@ def apply(kind: str, value: str) -> int:
         print(f"refusing to write invalid config: {error}", file=sys.stderr)
         return 1
     write_atomically(candidate)
-    subprocess.run(["umbriel", "msg", "config-reload"], check=False, capture_output=True)
-    if kind == "effect":
-        subprocess.run(["umbriel", "msg", "effect-cursor-set", value or "off"], check=False, capture_output=True)
+    if not run_umbriel(["msg", "config-reload"]):
+        return 1
+    if kind == "effect" and not run_umbriel(["msg", "effect-cursor-set", value or "off"]):
+        return 1
     return 0
 
 
