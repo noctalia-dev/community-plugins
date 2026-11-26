@@ -472,17 +472,22 @@ function Save.run(job, opt)
       for name in pairs(mine) do
         installed[name] = true
       end
+      breathe()
       local their = setOf(entries(noctalia.readFile(sharedPath)))
+      breathe()
       local base = setOf(entries(noctalia.readFile(basePath)))
+      breathe()
       local had = setOf(entries(noctalia.readFile(hadPath)))
       local shared, left = {}, {}
       for name in pairs(their) do
+        breathe()
         -- Removed here: this device had it, and it is not installed or turned on any more.
         if not had[name] or installed[name] or excluded[name] then
           shared[name] = true
         end
       end
       for name in pairs(mine) do
+        breathe()
         if not their[name] and not extra[list .. " " .. name] then
           if base[name] and not again[list .. " " .. name] then
             left[name] = true
@@ -867,6 +872,7 @@ function Save.run(job, opt)
         job.stop(1)
       end
       for line in eachLine(tree.stdout) do
+        breathe()
         local mode, blob, path = line:match("^(%d+) %a+ (%x+)\t(.+)$")
         -- A save never shares a link, or a path that is not plain, so neither came from
         -- Resurrect.
