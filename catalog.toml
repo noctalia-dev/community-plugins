@@ -1301,8 +1301,8 @@ rev = "b78a83b2b9923be34f24cbc20a9a5531ebdf37c5"
 [[plugin]]
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "2.1.0"
-updated_at = 1793025654
+version = "2.1.1"
+updated_at = 1795735111
 added_at = 1785759728
 author = "alexander"
 license = "MIT"
