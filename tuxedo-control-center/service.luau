@@ -110,7 +110,7 @@ local function setProfile(id)
     return
   end
   publish({ available = snapshot.available, loading = true, profiles = snapshot.profiles, activeId = snapshot.activeId, error = nil })
-  noctalia.runAsync({ "busctl", "--system", "call", BUS, PATH, INTERFACE, "SetTempProfileById", "s", id }, function(result)
+  noctalia.runAsync({ "busctl", "--system", "--", "call", BUS, PATH, INTERFACE, "SetTempProfileById", "s", id }, function(result)
     if result.exitCode ~= 0 then
       publish({ available = snapshot.available, loading = false, profiles = snapshot.profiles, activeId = snapshot.activeId,
         error = "TUXEDO Control Center did not accept that profile." })

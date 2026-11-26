@@ -1,7 +1,7 @@
 id = "detluck/tuxedo-control-center"
 name = "TUXEDO Control Center"
 version = "0.1.0"
-plugin_api = 46
+plugin_api = 42
 author = "detluck"
 license = "MIT"
 icon = "cpu"

@@ -5,12 +5,25 @@ local PANEL = "detluck/tuxedo-control-center:profiles"
 local snap = noctalia.state.get(STATE) or { loading = true, profiles = {} }
 
 local function activeLabel()
-  for _, profile in ipairs(snap.profiles or {}) do
-    if profile.id == snap.activeId then
-      return tostring(profile.name or profile.displayName or profile.id)
+    for _, profile in ipairs(snap.profiles or {}) do
+        if profile.id == snap.activeId then
+            return tostring(profile.name or profile.displayName or profile.id)
+        end
     end
-  end
-  return snap.loading and "TUXEDO profiles" or "TUXEDO profiles unavailable"
+
+    if snap.loading then
+        return "TUXEDO profiles"
+    end
+
+    if not snap.available then
+        return "TUXEDO profiles unavailable"
+    end
+
+    if snap.activeId then
+        return "Active profile hidden"
+    end
+
+    return "No active profile"
 end
 
 local function render()
