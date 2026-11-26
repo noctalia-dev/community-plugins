@@ -45,8 +45,8 @@ press **Save now** in the panel.
   are saved themselves.
 - Inside a folder, a save leaves out what is not settings: caches, logs and crash reports,
   the data of browsers and Electron apps such as Brave or VS Code, nested git folders,
-  binary files and files over 1 MB. A file you list by name is always saved, such as
-  `~/.config/Code/User/settings.json`.
+  binary files, files over 1 MB, and pipes, sockets and devices. A file you list by name is
+  always saved, such as `~/.config/Code/User/settings.json`.
 - List what else to skip in **Leave out**, such as `~/.config/gh/hosts.yml`, which holds
   a token, or `~/.config/kdeconnect`, which holds this device's key.
 - When the dotfiles still add up to more than 50 MB, or a file cannot be read, nothing is
@@ -95,7 +95,8 @@ other devices changed. Nothing from them comes in until you take it:
   **Take all**, puts in place the version Review shows, with the next save. When another
   device changes it again while Review is open, its content or whether it is executable,
   Review shows the new version instead, and a choice made on the old one is dropped. A
-  change Review cannot show in full, such as a very long one, cannot be taken in the panel:
+  change Review cannot show in full, such as a very long one or one to a binary file, cannot
+  be taken in the panel:
   **Keep mine**, or copy it by hand from `shared/files/` in the repository. **Keep mine** shares this
   device's version instead. The file it replaces goes to
   `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the save stops

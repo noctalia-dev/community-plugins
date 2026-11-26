@@ -25,10 +25,14 @@ incomplete() {
 }
 
 # git's diff of $1, this device's file, and $2, the other devices' version, with the two sides
-# named in its header and control characters as text. Fails when git could not compare them.
+# named in its header and control characters as text. Fails when git could not compare them,
+# and with 2 when either side is binary, since git then shows only that they differ.
 show_diff() {
   git --no-pager diff --no-index --no-color -- "$1" "$2" >"$work/diff"
   [ $? -le 1 ] || return 1
+  if grep -q '^Binary files .* differ$' "$work/diff"; then
+    return 2
+  fi
   sed '1,5{/^diff --git /d; /^index /d; /^new file mode /d; /^old mode /d; /^new mode /d; s|^--- .*|--- this device|; s|^+++ .*|+++ the other devices|}' "$work/diff" |
     cat -v
 }
@@ -63,12 +67,12 @@ while read -r version path; do
   elif [ "$mine_exec" != "$theirs_exec" ]; then
     echo "Becomes $(describe "$theirs_exec"); it is $(describe "$mine_exec") on this device."
   fi
-  if show_diff "$mine" "$work/theirs"; then
-    complete
-  else
-    echo "The change could not be shown."
-    incomplete
-  fi
+  show_diff "$mine" "$work/theirs"
+  case $? in
+    0) complete ;;
+    2) echo "A binary file: the change cannot be shown." && incomplete ;;
+    *) echo "The change could not be shown." && incomplete ;;
+  esac
 done <"$data/review.txt"
 
 if [ -f "$data/review-settings.toml" ]; then

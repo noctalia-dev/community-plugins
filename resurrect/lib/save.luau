@@ -786,7 +786,8 @@ function Save.run(job, opt)
   if share then
     -- Shares the dotfiles. shared/files/ holds every shared file at its place under the
     -- home folder. For each file there are three versions: this device's, the one in
-    -- <theirs>, and the one this device last agreed on, kept in .git/resurrect-base. A file
+    -- <theirs>, and the one this device last agreed on, kept in .git/resurrect-base. A
+    -- version is the content and whether the file is executable, "<blob>:<mode>". A file
     -- only this device changed is saved. A file only another device changed waits, reported
     -- as incoming, until the owner takes it; then it is put in place here, after a backup. A
     -- file both changed is left alone on both sides and reported, until the owner chooses.
@@ -831,8 +832,10 @@ function Save.run(job, opt)
       end
       return false
     end
+    -- Paths here that are not regular files, such as a pipe: never read, never shared.
+    local special = {}
     local function isKept(path)
-      return under(path, kept) or not under(path, listed) or under(path, data)
+      return special[path] or under(path, kept) or not under(path, listed) or under(path, data)
     end
 
     local function readPairs(path)
@@ -882,10 +885,35 @@ function Save.run(job, opt)
     for path in pairs(base) do
       others[path] = true
     end
+    local present = {}
     for _, path in ipairs(sorted(others)) do
       breathe()
       local full = home .. "/" .. path
       if mine[path] == nil and not isKept(path) and noctalia.fileExists(full) and not isDir(full) then
+        table.insert(present, path)
+      end
+    end
+    -- Reading a pipe waits for a writer, so only a regular file is read. Any other kind is
+    -- kept on this device: the shared copy stays as the other devices left it, and it does
+    -- not read as removed here. find checks a chunk of paths at a time.
+    local regular = {}
+    for first = 1, #present, CHUNK do
+      local argv = { "find", "-L" }
+      for i = first, math.min(first + CHUNK - 1, #present) do
+        table.insert(argv, home .. "/" .. present[i])
+      end
+      table.move({ "-maxdepth", "0", "-type", "f" }, 1, 4, #argv + 1, argv)
+      for line in eachLine(job.run(argv).stdout) do
+        regular[line] = true
+      end
+    end
+    for _, path in ipairs(present) do
+      breathe()
+      local full = home .. "/" .. path
+      if not regular[full] then
+        special[path] = true
+        job.emit("left out ~/" .. path .. ": it is not a regular file")
+      else
         local content = noctalia.readFile(full)
         if content == nil then
           job.emit("could not read ~/" .. path)
@@ -1008,6 +1036,19 @@ function Save.run(job, opt)
       end
     end
 
+    -- This device's version of <path>, "<blob>:<mode>".
+    local function mineVersion(path)
+      return hashes[path] and hashes[path] .. ":" .. (mineExec[path] and "100755" or "100644")
+    end
+    -- Whether two versions are the same. A version saved by an older Resurrect has no mode,
+    -- and then only the content counts.
+    local function same(a, b)
+      if a == nil or b == nil or not a:find(":", 1, true) or not b:find(":", 1, true) then
+        return (a and a:match("^[^:]+")) == (b and b:match("^[^:]+"))
+      end
+      return a == b
+    end
+
     local paths = {}
     for path in pairs(mine) do
       paths[path] = true
@@ -1024,7 +1065,8 @@ function Save.run(job, opt)
     -- as a failed save there: then none is removed here.
     local removing = 0
     for _, path in ipairs(paths) do
-      if not isKept(path) and mine[path] ~= nil and their[path] == nil and base[path] ~= nil and hashes[path] == base[path] then
+      if not isKept(path) and mine[path] ~= nil and their[path] == nil and base[path] ~= nil
+        and same(mineVersion(path), base[path]) then
         removing += 1
       end
     end
@@ -1037,10 +1079,12 @@ function Save.run(job, opt)
       local mode = their[path] and their[path].mode
       -- What the owner is shown and takes: the content and whether it is executable.
       local version = t and t .. ":" .. mode or "-"
+      -- The three versions, each "<blob>:<mode>", compared with same().
+      local tv = t and version
       local b = base[path]
-      local m = hashes[path]
+      local m = mineVersion(path)
       -- Theirs is held when it is the version that broke Hyprland here.
-      local isHeld = held[path] ~= nil and held[path] == t
+      local isHeld = held[path] ~= nil and same(held[path], tv)
       -- "theirs <version>" takes the version the owner was shown. When another device changed
       -- the file again since, its content or its mode, the choice is dropped and the file waits
       -- again, with its new version.
@@ -1058,14 +1102,14 @@ function Save.run(job, opt)
         if b then
           newBase[path] = b
         end
-      elseif m == t or choice == "mine" or (t == b and choice ~= "theirs")
+      elseif same(m, tv) or choice == "mine" or (same(tv, b) and choice ~= "theirs")
         or (t == nil and m ~= nil and manyRemoved and choice ~= "theirs") then
         -- Same on both sides, or only this device changed it: this device's version is shared.
         if m then
           keep(path)
           newBase[path] = m
         end
-      elseif m == b and not isHeld and choice == nil then
+      elseif same(m, b) and not isHeld and choice == nil then
         -- Only another device changed it: it waits until the owner takes it or keeps theirs
         -- out. The shared copy stays theirs and the agreed version stays, so it still reads
         -- as changed elsewhere on the next save.
@@ -1083,7 +1127,7 @@ function Save.run(job, opt)
           job.emit("removed " .. path)
         elseif put(path, t, mode) then
           keep(path, t, mode)
-          newBase[path] = t
+          newBase[path] = tv
           table.insert(applied, path)
           job.emit("applied " .. path)
         else
@@ -1102,7 +1146,7 @@ function Save.run(job, opt)
           newBase[path] = b
         end
         if isHeld then
-          newHeld[path] = t
+          newHeld[path] = tv
           job.emit("held " .. version .. " " .. path)
         else
           job.emit("conflict " .. version .. " " .. path)
@@ -1137,7 +1181,7 @@ function Save.run(job, opt)
           end
           -- The agreed version goes back to what it was, so the file stays a difference.
           newBase[path] = base[path]
-          newHeld[path] = their[path].blob
+          newHeld[path] = their[path].blob .. ":" .. their[path].mode
           job.emit("held " .. their[path].blob .. ":" .. their[path].mode .. " " .. path)
         end
         job.run({ "hyprctl", "reload" })
