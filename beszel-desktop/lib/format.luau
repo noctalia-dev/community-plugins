@@ -3,6 +3,8 @@
 
 local M = {}
 
+local KIB_BYTES = 1024
+local MIB_BYTES = 1024 * 1024
 local GIB_BYTES = 1024 * 1024 * 1024
 
 function M.clamp(val, minVal, maxVal)
@@ -38,6 +40,157 @@ end
 
 function M.formatGiB(bytes)
   return string.format("%.1f", (tonumber(bytes) or 0) / GIB_BYTES)
+end
+
+function M.formatGiBCompact(usedBytes, totalBytes)
+  local used = (tonumber(usedBytes) or 0) / GIB_BYTES
+  local total = (tonumber(totalBytes) or 0) / GIB_BYTES
+  if total >= 100 then
+    return string.format("%.0f / %.0f GiB", used, total)
+  end
+  return string.format("%.1f / %.0f GiB", used, total)
+end
+
+function M.formatMb(mb)
+  local value = math.max(0, tonumber(mb) or 0)
+  if value >= 1024 then
+    return string.format("%.1f GiB", value / 1024.0)
+  end
+  return string.format("%d MiB", math.floor(value + 0.5))
+end
+
+function M.formatRate(bps)
+  local value = math.max(0, tonumber(bps) or 0)
+  if value < KIB_BYTES then
+    return string.format("%d B/s", math.floor(value + 0.5))
+  end
+  if value < MIB_BYTES then
+    local kb = value / KIB_BYTES
+    if kb < 10 then
+      return string.format("%.1f KB/s", kb)
+    end
+    return string.format("%d KB/s", math.floor(kb + 0.5))
+  end
+  if value < GIB_BYTES then
+    local mb = value / MIB_BYTES
+    if mb < 10 then
+      return string.format("%.1f MB/s", mb)
+    end
+    return string.format("%d MB/s", math.floor(mb + 0.5))
+  end
+  local gb = value / GIB_BYTES
+  if gb < 10 then
+    return string.format("%.2f GB/s", gb)
+  end
+  return string.format("%.1f GB/s", gb)
+end
+
+function M.formatCompactRate(bps)
+  local value = math.max(0, tonumber(bps) or 0)
+  if value < 1000 then
+    return string.format("%dB", math.floor(value + 0.5))
+  end
+  if value < 1000 * KIB_BYTES then
+    local kb = value / KIB_BYTES
+    if kb < 10 then
+      return string.format("%.1fK", kb)
+    end
+    return string.format("%dK", math.floor(kb + 0.5))
+  end
+  if value < 1000 * MIB_BYTES then
+    local mb = value / MIB_BYTES
+    if mb < 10 then
+      return string.format("%.1fM", mb)
+    end
+    return string.format("%dM", math.floor(mb + 0.5))
+  end
+  local gb = value / GIB_BYTES
+  if gb < 10 then
+    return string.format("%.1fG", gb)
+  end
+  return string.format("%dG", math.floor(gb + 0.5))
+end
+
+function M.formatTemp(tempC)
+  local value = tonumber(tempC) or 0
+  return string.format("%d°C", math.floor(value + 0.5))
+end
+
+function M.tempSeverityColor(tempC, normalColor)
+  local value = tonumber(tempC) or 0
+  if value >= 90 then
+    return "error"
+  end
+  if value >= 75 then
+    return "tertiary"
+  end
+  return normalColor
+end
+
+function M.formatUptime(secs)
+  local total = math.max(0, math.floor(tonumber(secs) or 0))
+  local days = math.floor(total / 86400)
+  local hours = math.floor((total % 86400) / 3600)
+  local mins = math.floor((total % 3600) / 60)
+  if days > 0 then
+    return string.format("%dd %dh", days, hours)
+  end
+  if hours > 0 then
+    return string.format("%dh %dm", hours, mins)
+  end
+  return string.format("%dm", math.max(1, mins))
+end
+
+function M.cleanOsName(name)
+  if type(name) ~= "string" then
+    return nil
+  end
+  local s = noctalia.string.trim(name)
+  if s == "" then
+    return nil
+  end
+  s = string.gsub(s, "%s*%b()", "")
+  s = string.gsub(s, "%s+GNU/Linux", "")
+  s = string.gsub(s, "^Fedora%s+Linux%s+", "Fedora ")
+  s = string.gsub(s, "%s+", " ")
+  s = noctalia.string.trim(s)
+  return s ~= "" and s or nil
+end
+
+function M.cleanCpuModel(model)
+  if type(model) ~= "string" then
+    return nil
+  end
+  local s = noctalia.string.trim(model)
+  if s == "" then
+    return nil
+  end
+  s = string.gsub(s, "%([RrTt][Mm]?%)", "")
+  s = string.gsub(s, "%([Cc]%)", "")
+  s = string.gsub(s, "®", "")
+  s = string.gsub(s, "™", "")
+  s = string.gsub(s, "%s*@%s*[%d%.]+%s*[GMK]?Hz.*$", "")
+  s = string.gsub(s, "%s+[Ww]/%s+Radeon.*$", "")
+  s = string.gsub(s, "%s+[Ww]ith%s+Radeon.*$", "")
+  s = string.gsub(s, "^%d+[a-z][a-z]%s+Gen%s+", "")
+  s = string.gsub(s, "%s+%d+%-Core", "")
+  s = string.gsub(s, "%s+Processor", "")
+  s = string.gsub(s, "%s+CPU%s+", " ")
+  s = string.gsub(s, "%s+CPU$", "")
+  s = string.gsub(s, "%s+", " ")
+  s = noctalia.string.trim(s)
+  return s ~= "" and s or nil
+end
+
+function M.primaryGpu(sample)
+  if type(sample) ~= "table" or type(sample.gpus) ~= "table" or #sample.gpus == 0 then
+    return nil
+  end
+  return sample.gpus[1]
+end
+
+function M.hasNetwork(sample)
+  return type(sample) == "table" and (sample.net_recv_bps ~= nil or sample.net_sent_bps ~= nil)
 end
 
 function M.severityColor(pct, normalColor, warnPct, dangerPct)

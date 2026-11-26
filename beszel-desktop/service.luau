@@ -13,6 +13,7 @@ local connection = {
 local systems = {}
 local historyBySystem = {}
 local historyCapacity = 60
+local hubUrl = nil
 local activeCommand = nil
 local ctlMissing = false
 
@@ -59,6 +60,7 @@ end
 local function publish()
   noctalia.state.set(STATE_KEY, {
     connection = connection,
+    hubUrl = hubUrl,
     systems = systems,
     historyBySystem = historyBySystem,
     historyCapacity = historyCapacity,
@@ -69,6 +71,9 @@ end
 
 local function applySnapshot(msg)
   connection = msg.connection or connection
+  if type(msg.hub_url) == "string" and msg.hub_url ~= "" then
+    hubUrl = msg.hub_url
+  end
   local nextSystems = {}
   local nextHistory = {}
   local cap = historyCapacity
@@ -105,6 +110,13 @@ local function applySample(systemId, sample)
   if type(list) ~= "table" then
     list = {}
     historyBySystem[systemId] = list
+  end
+  local prev = list[#list]
+  if type(prev) == "table" then
+    prev.cpu_cores = nil
+    prev.containers = nil
+    prev.unhealthy_pools = nil
+    prev.extra_disks = nil
   end
   table.insert(list, sample)
   while #list > historyCapacity do

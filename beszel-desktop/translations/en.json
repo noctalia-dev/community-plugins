@@ -1,14 +1,30 @@
 {
   "panel": {
+    "battery_charging": "Battery charging",
+    "battery_discharging": "On battery",
+    "battery_full": "Battery full",
+    "battery_idle": "Plugged in (holding charge)",
+    "containers": "Containers",
+    "containers_count": "{count} active",
     "cores": "Cores",
     "cores_hover": "Core {index}  {pct}%",
     "cores_summary": "{count} cores  Peak {peak}%",
     "cpu": "CPU",
+    "disk": "Disk",
+    "disk_io": "Disk I/O",
+    "disk_io_values": "R {read}  W {write}",
     "empty": "Waiting for live metrics from beszel-relay.",
+    "failed_services": "{count} failed",
+    "failed_services_tooltip": "{count} failed systemd services",
+    "gpu": "GPU",
     "memory": "Memory",
+    "network": "Network",
+    "network_download": "Download",
+    "network_peak": "Peak {rate}",
+    "network_upload": "Upload",
+    "open_in_beszel": "Open {host} in Beszel",
     "open_settings": "Plugin settings",
-    "pin_failed_toast": "Could not update bar widget host setting.",
-    "pin_to_bar_tooltip": "Pin {host} to this bar widget",
+    "pool_degraded": "Degraded storage pool: {pools}",
     "setup_alt": "Or install via Nix, Cargo, or GitHub Releases, then run `beszel-ctl init`.",
     "setup_auth_desc": "beszel-relay could not sign in to your Beszel hub. Re-run the setup wizard to update your URL or credentials:",
     "setup_auth_title": "Check Beszel credentials",
@@ -19,7 +35,15 @@
     "setup_init_title": "Connect your Beszel hub",
     "setup_install_desc": "Beszel Desktop streams remote hosts from the local beszel-relay daemon. Paste this into a terminal to install verified binaries and connect your hub:",
     "setup_install_title": "Install beszel-relay",
-    "title": "Beszel Desktop"
+    "swap": "Swap",
+    "title": "Beszel Desktop",
+    "updates_security_short": "{total} upd ({security} sec)",
+    "updates_security_tooltip": "{total} pending package updates ({security} security)",
+    "updates_short": "{total} upd",
+    "updates_tooltip": "{total} pending package updates",
+    "vitals_load": "Load {l1} {l5} {l15}",
+    "vitals_load_cores": "Load {l1} {l5} {l15} ({cores}c)",
+    "vitals_uptime": "Up {uptime}"
   },
   "settings": {
     "ctl_path": {
@@ -27,12 +51,77 @@
       "label": "beszel-ctl binary"
     },
     "danger_threshold": {
-      "description": "Highlight CPU, memory, and core bars in error color at or above this percentage.",
+      "description": "Highlight CPU, memory, GPU, disk, and core bars in error color at or above this percentage.",
       "label": "Danger threshold (%)"
     },
+    "network_mode": {
+      "description": "How to display live network throughput in this bar widget (auto-hides if the host does not report network stats).",
+      "label": "Network throughput",
+      "options": {
+        "combined": "Combined total",
+        "download": "Download only",
+        "off": "Hidden",
+        "split": "Download & upload (split)",
+        "upload": "Upload only"
+      }
+    },
+    "panel": {
+      "show_containers": {
+        "description": "Show the top Docker/Podman containers by CPU usage (auto-hides on hosts without containers).",
+        "label": "Containers"
+      },
+      "show_cores": {
+        "description": "Show the live per-core CPU utilization heatmap.",
+        "label": "Per-core CPU heatmap"
+      },
+      "show_disk": {
+        "description": "Show root disk usage, live read/write throughput, and degraded storage pool alerts.",
+        "label": "Disk & storage"
+      },
+      "show_gpu": {
+        "description": "Show live GPU utilization sparkline, VRAM usage, and power draw (auto-hides on hosts without a GPU).",
+        "label": "GPU"
+      },
+      "show_load": {
+        "description": "Show 1/5/15-minute load averages (with core count context) in the vitals strip.",
+        "label": "Load average"
+      },
+      "show_network": {
+        "description": "Show live download and upload throughput rates with a dual-series sparkline.",
+        "label": "Network I/O"
+      },
+      "show_swap": {
+        "description": "Show swap usage under the memory sparkline whenever swap is in use.",
+        "label": "Swap usage"
+      },
+      "show_vitals": {
+        "description": "Show the compact vitals strip (uptime, peak temperature, and battery).",
+        "label": "Vitals strip"
+      }
+    },
+    "show_cpu": {
+      "description": "Show live CPU utilization percentage in this bar widget.",
+      "label": "Show CPU"
+    },
+    "show_disk": {
+      "description": "Show root disk usage percentage in this bar widget.",
+      "label": "Show disk"
+    },
+    "show_gpu": {
+      "description": "Show primary GPU utilization percentage in this bar widget (auto-hides when no GPU is reported).",
+      "label": "Show GPU"
+    },
     "show_host_name": {
-      "description": "Show the Beszel host name next to the CPU and memory metrics in the bar.",
+      "description": "Show the Beszel host name next to the metrics in this bar widget.",
       "label": "Show host name"
+    },
+    "show_memory": {
+      "description": "Show live memory utilization percentage in this bar widget.",
+      "label": "Show memory"
+    },
+    "show_temp": {
+      "description": "Show peak sensor temperature in this bar widget (auto-hides when no temperature sensors are reported).",
+      "label": "Show temperature"
     },
     "socket_path": {
       "description": "Optional override for the beszel-relay Unix socket path. Leave empty for $XDG_RUNTIME_DIR/beszel-relay.sock.",
@@ -47,7 +136,7 @@
       "label": "Host"
     },
     "warn_threshold": {
-      "description": "Highlight CPU, memory, and core bars in warning color at or above this percentage.",
+      "description": "Highlight CPU, memory, GPU, disk, and core bars in warning color at or above this percentage.",
       "label": "Warning threshold (%)"
     }
   },
@@ -63,8 +152,17 @@
   },
   "tooltip": {
     "cpu": "CPU",
+    "disk": "Disk",
+    "gpu": "GPU",
     "host": "Host",
     "memory": "Memory",
-    "status": "Status"
+    "network": "Network",
+    "os": "OS",
+    "services": "Services",
+    "status": "Status",
+    "swap": "Swap",
+    "temp": "Temperature",
+    "updates": "Updates",
+    "uptime": "Uptime"
   }
 }
