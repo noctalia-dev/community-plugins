@@ -1,0 +1,47 @@
+{
+  "title": "Caffeine",
+  "state": {
+    "on": "On",
+    "off": "Off"
+  },
+  "tooltip": {
+    "remaining": "Remaining",
+    "external": "On (turned on elsewhere)",
+    "lid": "Lid close won't suspend",
+    "hint": "Click: toggle · Right click: presets · Scroll: ± time"
+  },
+  "panel": {
+    "remaining": "{time} remaining",
+    "until_off": "On until you turn it off",
+    "off": "Off: idle screen-off, lock and suspend apply",
+    "enable_for": "Enable for",
+    "cancel_timer": "Cancel timer (stay on)",
+    "lid": "Ignore lid close",
+    "lid_hint": "Also stop lid close from suspending"
+  },
+  "notify": {
+    "lid_failed": "Couldn't start the lid inhibitor; see `systemctl --user status caffeinate-plus-lid`."
+  },
+  "settings": {
+    "presets_minutes": {
+      "label": "Presets (minutes)",
+      "description": "Durations offered in the panel, in minutes"
+    },
+    "scroll_step_minutes": {
+      "label": "Scroll step (minutes)",
+      "description": "Time added or removed per scroll step over the bar widget"
+    },
+    "cancel_on_lock": {
+      "label": "Turn off when the screen locks",
+      "description": "Locking ends the session. Caffeine turns off if a timer was running or this plugin turned it on"
+    },
+    "lid_inhibit": {
+      "label": "Ignore lid close by default",
+      "description": "While caffeine is on, also stop lid close from suspending"
+    },
+    "show_remaining": {
+      "label": "Show remaining time",
+      "description": "Show the countdown next to the icon while a timer runs"
+    }
+  }
+}
