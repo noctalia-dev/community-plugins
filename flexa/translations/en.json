@@ -1,0 +1,79 @@
+{
+  "title": "Flexa",
+  "widget": {
+    "idle": "Flexa",
+    "empty": "Pick a folder",
+    "tooltip": {
+      "idle": "Click to open Flexa music player"
+    }
+  },
+  "panel": {
+    "title": "Flexa",
+    "rescan": "Rescan folder",
+    "settings": "Plugin settings",
+    "close": "Close",
+    "search": {
+      "placeholder": "Search tracks, artists, folders..."
+    },
+    "tab": {
+      "all": "All",
+      "folders": "Folders",
+      "queue": "Queue",
+      "favorites": "Liked"
+    },
+    "empty": {
+      "no-dir": "Set a music folder in settings to start playing.",
+      "no-tracks": "No audio files found in the configured folder.",
+      "no-matches": "No tracks match your search.",
+      "no-queue": "Queue is empty. Play a song or add tracks with +.",
+      "no-favorites": "No liked tracks yet. Tap the heart on any song."
+    },
+    "open-settings": "Choose Music Folder",
+    "page-prev": "Prev",
+    "page-next": "Next",
+    "back-folders": "All folders",
+    "play-all": "Play all",
+    "shuffle-play": "Shuffle play",
+    "clear-queue": "Clear queue",
+    "no-track": "Nothing playing",
+    "select-track": "Choose a track below to start listening"
+  },
+  "settings": {
+    "music-directory": {
+      "label": "Music folder",
+      "description": "Folder containing your audio files (supports ~/ paths)."
+    },
+    "recursive-scan": {
+      "label": "Scan subfolders",
+      "description": "Include audio files inside nested artist and album folders."
+    },
+    "default-volume": {
+      "label": "Startup volume",
+      "description": "Initial player volume (0-100%) when no saved volume exists."
+    },
+    "remember-last-track": {
+      "label": "Remember last session",
+      "description": "Restore the last played track, volume, shuffle, and repeat mode."
+    },
+    "extract-artwork": {
+      "label": "Extract album art",
+      "description": "Cache folder artwork and embedded covers using ffmpeg when available."
+    },
+    "show-bar-controls": {
+      "label": "Bar mini-controls",
+      "description": "Show inline play/pause and next-track buttons on the bar widget."
+    },
+    "show-bar-title": {
+      "label": "Show track in bar",
+      "description": "Display the current track title next to the Flexa icon in the bar."
+    },
+    "show-bar-artwork": {
+      "label": "Show cover art in bar",
+      "description": "Replace the bar music icon with the current track's album art when playing."
+    },
+    "bar-max-width": {
+      "label": "Bar title max width",
+      "description": "Maximum width in logical pixels for the track title in the bar."
+    }
+  }
+}

@@ -1,0 +1,97 @@
+id = "nirikshak01/flexa"
+name = "Flexa"
+version = "0.1.0"
+plugin_api = 43
+author = "nirikshak01"
+license = "MIT"
+dependencies = [ "mpv", "python3" ]
+tags = [ "music", "audio", "media", "bar", "panel", "service" ]
+icon = "music"
+description = "Play music straight from any local folder with a sleek bar widget and panel player."
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [widget.actions]
+  middle = "none"
+
+[[panel]]
+id = "player"
+entry = "panel.luau"
+width = 500
+height = 700
+placement = "floating"
+position = "center"
+layer = "top"
+
+[[setting]]
+key = "musicDirectory"
+label_key = "settings.music-directory.label"
+description_key = "settings.music-directory.description"
+type = "folder"
+default = "~/Music"
+
+[[setting]]
+key = "recursiveScan"
+label_key = "settings.recursive-scan.label"
+description_key = "settings.recursive-scan.description"
+type = "bool"
+default = true
+
+[[setting]]
+key = "defaultVolume"
+label_key = "settings.default-volume.label"
+description_key = "settings.default-volume.description"
+type = "int"
+default = 80
+min = 0
+max = 100
+
+[[setting]]
+key = "rememberLastTrack"
+label_key = "settings.remember-last-track.label"
+description_key = "settings.remember-last-track.description"
+type = "bool"
+default = true
+
+[[setting]]
+key = "extractArtwork"
+label_key = "settings.extract-artwork.label"
+description_key = "settings.extract-artwork.description"
+type = "bool"
+default = true
+
+[[setting]]
+key = "showBarControls"
+label_key = "settings.show-bar-controls.label"
+description_key = "settings.show-bar-controls.description"
+type = "bool"
+default = false
+
+[[setting]]
+key = "showBarTitle"
+label_key = "settings.show-bar-title.label"
+description_key = "settings.show-bar-title.description"
+type = "bool"
+default = false
+
+[[setting]]
+key = "showBarArtwork"
+label_key = "settings.show-bar-artwork.label"
+description_key = "settings.show-bar-artwork.description"
+type = "bool"
+default = false
+
+[[setting]]
+key = "barMaxWidth"
+label_key = "settings.bar-max-width.label"
+description_key = "settings.bar-max-width.description"
+type = "int"
+default = 220
+min = 80
+max = 500
