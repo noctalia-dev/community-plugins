@@ -5274,8 +5274,8 @@ tags = ["hyprland", "bar", "panel", "productivity"]
 [[plugin]]
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.7.0"
-updated_at = 1795644521
+version = "1.7.1"
+updated_at = 1795735190
 added_at = 1793071179
 author = "Ishan0121"
 license = "GPL-3.0"
@@ -5696,8 +5696,8 @@ tags = ["bar", "panel", "service", "network", "system"]
 [[plugin]]
 id = "demencia89/androidconnect"
 name = "AndroidConnect"
-version = "2.4.1"
-updated_at = 1793976618
+version = "2.4.2"
+updated_at = 1795735206
 added_at = 1793976618
 author = "demencia89"
 license = "GPL-2.0-only"
