@@ -179,7 +179,7 @@ local function ruleFor(output, originX, originY)
   if not output.enabled then
     table.insert(fields, "disable:1")
     appendAdvanced(fields, output)
-    return "monitorrule=" .. table.concat(fields, ",")
+    return "monitor_rule=" .. table.concat(fields, ",")
   end
 
   local mode = output.currentMode
@@ -195,12 +195,12 @@ local function ruleFor(output, originX, originY)
   table.insert(fields, string.format("scale:%.4f", output.scale))
   table.insert(fields, "rr:" .. (TRANSFORMS[output.transform] or 0))
   appendAdvanced(fields, output)
-  return "monitorrule=" .. table.concat(fields, ",")
+  return "monitor_rule=" .. table.concat(fields, ",")
 end
 
 local function parseRule(line)
   local fields = {}
-  local body = line:match("^monitorrule=(.*)$")
+  local body = line:match("^monitor_rule=(.*)$")
   if body == nil then
     return nil
   end
