@@ -6317,3 +6317,16 @@ icon = "cpu"
 description = "Switch every TUXEDO Control Center power profile from a Noctalia panel."
 plugin_api = 42
 tags = ["bar", "panel", "hardware"]
+
+[[plugin]]
+id = "jonfriesen/caffeinate-plus"
+name = "Caffeinate Plus"
+version = "0.1.3"
+updated_at = 1795735632
+added_at = 1795735632
+author = "jonfriesen"
+license = "MIT"
+icon = "coffee"
+description = "Caffeine with timed presets, a countdown, auto-off on screen lock, and an optional lid-close inhibit."
+plugin_api = 43
+tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
