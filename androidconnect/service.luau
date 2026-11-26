@@ -56,7 +56,7 @@ else
   -- runStream only accepts a shell string. Only fixed argv and individually
   -- quoted local paths enter it; all actions use private JSON, not shell text.
   lastStatus = noctalia.nowMs()
-  local started = noctalia.runStream("exec python3 -B -u " .. shellQuote(helper) .. " --data " .. shellQuote(data), function(line)
+  local started = noctalia.runStream("exec python3 -B -u " .. shellQuote(helper) .. " --wait-for-lock --data " .. shellQuote(data), function(line)
     local event = noctalia.json.decode(line)
     if type(event) ~= "table" then return end
     if event.kind == "status" and type(event.value) == "table" then

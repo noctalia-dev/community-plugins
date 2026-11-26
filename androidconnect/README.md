@@ -150,8 +150,10 @@ phone screen for privacy; no desktop or phone messages are included.
   audio/QR pairing combinations have not been comprehensively tested.
 
 Source and regression tests: [AndroidConnect v5](https://github.com/demencia89/noctalia-androidconnect-v5).
-This submission packages the v2.4.0 runtime with current palette-role names, community-store metadata, and
-artwork as v2.4.1. The v4 QML plugin remains a separate project.
+Version 2.4.2 preserves the preview when you reselect a phone and starts wireless
+reconnection sooner when you switch devices. The revised package outlines the header
+and action and status icons, and resumes device updates after a plugin reload.
+The v4 QML plugin remains a separate project.
 
 Licensed under GPL-2.0-only; see [LICENSE](LICENSE). Based on WerWolv's original
 [Noctalia KDE Connect plugin](https://github.com/WerWolv/noctalia-kde-connect),
