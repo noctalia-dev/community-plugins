@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "font_family": {
+      "label": "Dial font",
+      "description": "Font for the numbers on the bar and panel dials. Leave empty to use the shell font."
+    },
+    "dial_size": {
+      "label": "Bar dial size",
+      "description": "Size of the dial on the bar in pixels. 27 fits the default bar; match it to your bar thickness."
+    }
+  },
+  "duration": {
+    "minutes": "{m} min",
+    "hours": "{h} h {mm} min"
+  },
+  "widget": {
+    "tooltip_idle": "Left click: shut down in {time}. Scroll: change the time. Middle click: open the dial",
+    "tooltip_active": "Shutdown at {clock}. Right click: cancel",
+    "tooltip_unknown": "Timer state unknown. Left click: shut down in {time}. Right click: cancel a running timer"
+  },
+  "panel": {
+    "now": "NOW",
+    "shutdown": "SHUTDOWN",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "hours_placeholder": "h",
+    "minutes_placeholder": "min",
+    "hint_idle": "Drag the knob, scroll over the dial or type the time",
+    "hint_active": "Counting down. Cancel to keep the computer on",
+    "hint_invalid": "Enter a time from 0:01 to 23:59 using digits only",
+    "start": "Start",
+    "cancel": "Cancel shutdown",
+    "hint_unknown": "Could not read the timer from systemd. Start or cancel it here"
+  },
+  "notify": {
+    "title": "Sleep Timer",
+    "started_title": "Sleep timer started",
+    "started_body": "The computer will shut down in {time}, at {clock}",
+    "cancelled_title": "Sleep timer cancelled",
+    "cancelled_body": "The computer will not shut down",
+    "poweroff_failed": "The timer ran out but the system refused to power off. See journalctl --user -u noctalia-sleep-timer",
+    "command_failed": "systemctl failed without an error message"
+  }
+}
