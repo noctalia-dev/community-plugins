@@ -6291,3 +6291,29 @@ icon = "server"
 description = "Ping LAN devices in a grid, with groups, drag reordering, per-device interval and sound, and latency."
 plugin_api = 43
 tags = ["bar", "panel", "service", "network"]
+
+[[plugin]]
+id = "nid25/sleep_timer"
+name = "Sleep Timer"
+version = "2.3.2"
+updated_at = 1795734987
+added_at = 1795734987
+author = "nid25"
+license = "MIT"
+icon = "moon"
+description = "Shut down the computer after a set time, from a bar dial, a draggable dial panel or a Control Center tile."
+plugin_api = 52
+tags = ["bar", "panel", "shortcut", "countdown", "system", "utility"]
+
+[[plugin]]
+id = "detluck/tuxedo-control-center"
+name = "TUXEDO Control Center"
+version = "0.1.0"
+updated_at = 1795735013
+added_at = 1795735013
+author = "detluck"
+license = "MIT"
+icon = "cpu"
+description = "Switch every TUXEDO Control Center power profile from a Noctalia panel."
+plugin_api = 42
+tags = ["bar", "panel", "hardware"]
