@@ -35,6 +35,44 @@ local syncFromState
 
 -- pill styling: every row is its own rounded button, floating free of its
 -- neighbours so the list never reads as one merged block
+-- Corner radii follow the shell's roundness setting (shell.corner_radius_scale,
+-- plugin API 26+); the raw pixel value is used if the setting cannot be read.
+local function getRadius(baseRadius)
+    local ok, scale = pcall(noctalia.getSetting, "shell.corner_radius_scale")
+    if ok and type(scale) == "number" then
+        return math.floor(baseRadius * scale)
+    end
+    return baseRadius
+end
+
+-- Highlight appearance comes from two plugin settings; the defaults ("primary",
+-- "tint") reproduce the original faint primary tint.
+local ACCENT_ROLES = { primary = true, secondary = true, tertiary = true }
+
+local function accentRole()
+    local role = noctalia.getConfig("highlight_color")
+    if ACCENT_ROLES[role] then return role end
+    return "primary"
+end
+
+local function isSolid()
+    return noctalia.getConfig("highlight_style") == "solid"
+end
+
+-- Fill of a lit element: a faint tint (alpha is the tint strength) or the solid role.
+local function litFill(alpha)
+    local role = accentRole()
+    if isSolid() then return role end
+    return role .. "/" .. alpha
+end
+
+-- Text or glyph colour on a lit element.
+local function litForeground()
+    local role = accentRole()
+    if isSolid() then return "on_" .. role end
+    return role
+end
+
 local ROW_HEIGHT = 34
 local ROW_RADIUS = 8
 local ROW_PAD_H = 12
@@ -335,13 +373,17 @@ local function renderRow(item, index, items)
     if not enabled then
         fill = "on_surface/0.02"
     elseif selected and hovered then
-        fill = "primary/0.26"
+        fill = litFill("0.26")
     elseif selected or hovered then
-        fill = "primary/0.16"
+        fill = litFill("0.16")
     else
         fill = "on_surface/0.04"
     end
-    local textColor = enabled and "on_surface" or "on_surface/0.4"
+    -- on a solid highlight the row's text, glyphs and hints switch to the
+    -- matching "on_" colour so they stay readable
+    local onSolid = enabled and (selected or hovered) and isSolid()
+    local textColor = enabled and (onSolid and litForeground() or "on_surface") or "on_surface/0.4"
+    local hintColor = onSolid and (litForeground() .. "/0.7") or "on_surface/0.45"
 
     local row = {}
 
@@ -349,7 +391,7 @@ local function renderRow(item, index, items)
             item.toggleState == true then
         table.insert(row, ui.glyph({
             name = "check", size = 14,
-            color = enabled and "primary" or "on_surface/0.4",
+            color = enabled and (onSolid and litForeground() or accentRole()) or "on_surface/0.4",
         }))
     else
         table.insert(row, ui.box({ width = 16 }))
@@ -372,7 +414,7 @@ local function renderRow(item, index, items)
     if accel ~= nil then
         table.insert(row, ui.label({
             text = accel,
-            color = "on_surface/0.45",
+            color = hintColor,
             fontSize = 12,
             maxLines = 1,
         }))
@@ -381,7 +423,7 @@ local function renderRow(item, index, items)
     if navigable then
         table.insert(row, ui.glyph({
             name = "chevron-right", size = 13,
-            color = "on_surface/0.45",
+            color = hintColor,
         }))
     end
 
@@ -390,7 +432,7 @@ local function renderRow(item, index, items)
         height = ROW_HEIGHT,
         gap = ROW_GAP,
         align = "center",
-        radius = ROW_RADIUS,
+        radius = getRadius(ROW_RADIUS),
         fill = fill,
         paddingH = ROW_PAD_H,
         onClick = function() activate(item, index) end,
@@ -415,7 +457,7 @@ local function identityHeader()
     local iconPath = appIcon(20)
     if iconPath ~= nil then
         row[#row + 1] = ui.image({ path = iconPath, width = 20, height = 20,
-                                   radius = 5, fit = "contain" })
+                                   radius = getRadius(5), fit = "contain" })
     else
         row[#row + 1] = ui.glyph({ name = "app-window", size = 16,
                                    color = "primary" })
@@ -434,7 +476,7 @@ local function identityHeader()
         height = 36,
         gap = 8,
         align = "center",
-        radius = ROW_RADIUS,
+        radius = getRadius(ROW_RADIUS),
         fill = "on_surface/0.04",
         paddingH = 10,
     }, row)
@@ -446,7 +488,7 @@ local function infoRow(keyText, valueText)
         height = 30,
         gap = 10,
         align = "center",
-        radius = ROW_RADIUS,
+        radius = getRadius(ROW_RADIUS),
         fill = "on_surface/0.04",
         paddingH = ROW_PAD_H,
     }, {
@@ -484,7 +526,7 @@ local function renderAbout()
         height = ROW_HEIGHT,
         gap = 8,
         align = "center",
-        radius = ROW_RADIUS,
+        radius = getRadius(ROW_RADIUS),
         fill = "primary/0.10",
         paddingH = ROW_PAD_H,
         onClick = function()
@@ -506,7 +548,7 @@ local function renderAbout()
     local iconPath = appIcon(56)
     if iconPath ~= nil then
         body[#body + 1] = ui.image({ path = iconPath, width = 56, height = 56,
-                                     radius = 12, fit = "contain" })
+                                     radius = getRadius(12), fit = "contain" })
     else
         body[#body + 1] = ui.glyph({ name = "app-window", size = 40,
                                      color = "primary" })
@@ -592,7 +634,7 @@ function render()
             height = ROW_HEIGHT,
             gap = 8,
             align = "center",
-            radius = ROW_RADIUS,
+            radius = getRadius(ROW_RADIUS),
             fill = "primary/0.10",
             paddingH = ROW_PAD_H,
             onClick = function()

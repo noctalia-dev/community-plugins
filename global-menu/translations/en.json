@@ -12,6 +12,23 @@
       "label": "Fallback menus",
       "description": "Show window and session actions when the application exports no menu at all."
     },
+    "highlight_color": {
+      "label": "Highlight color",
+      "description": "Theme color used for the open menu's label and the hovered or selected menu row.",
+      "option": {
+        "primary": "Primary",
+        "secondary": "Secondary",
+        "tertiary": "Tertiary"
+      }
+    },
+    "highlight_style": {
+      "label": "Highlight style",
+      "description": "Tint shades the highlight faintly with the color; Solid fills it completely and switches the text on it to a contrasting color.",
+      "option": {
+        "tint": "Tint",
+        "solid": "Solid"
+      }
+    },
     "max_menus": {
       "label": "Menu labels in the bar",
       "description": "Maximum top-level menu labels shown before truncation; 0 shows every menu."
