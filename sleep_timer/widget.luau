@@ -2,6 +2,8 @@
 -- Left click: start the timer, right click: cancel it, wheel: N +/- 15 minutes,
 -- middle click: the panel with the big dial.
 -- While the timer runs the dial counts down and the wheel and left click do nothing.
+-- While its state is unknown (systemd could not be asked yet) the dial shows "?" and both
+-- clicks work: Start is safe because systemd refuses a second timer of ours.
 
 local timer = require("./timer.luau")
 
@@ -25,7 +27,7 @@ local minutes = timer.loadMinutes()
 local lastTooltip = nil
 local trackImage = timer.imageTracker()
 
-local function dialSvg(value, neutral, accent, textColor, font)
+local function dialSvg(value, neutral, accent, textColor, font, label)
   local style = timer.lapStyle(value, neutral, accent)
   local litTicks = math.ceil(style.fraction * timer.MINUTES_PER_LAP / MINUTES_PER_TICK)
 
@@ -43,7 +45,7 @@ local function dialSvg(value, neutral, accent, textColor, font)
       lit and style.lit or style.unlit, lit and "1" or tostring(style.unlitOpacity)
     ))
   end
-  local text = tostring(value)
+  local text = label or tostring(value)
   local fontSize = #text > 2 and 21 or 27
   table.insert(parts, string.format(
     '<text x="32" y="%.2f" text-anchor="middle" font-family="%s" font-weight="bold" font-size="%d" fill="%s">%s</text>',
@@ -53,17 +55,18 @@ local function dialSvg(value, neutral, accent, textColor, font)
   return table.concat(parts)
 end
 
-local function drawDial(value, neutral, accent, textColor)
+local function drawDial(value, neutral, accent, textColor, label)
   if not dataDir then
-    barWidget.setText(tostring(value))
+    barWidget.setText(label or tostring(value))
     return
   end
   local font = timer.fontFamily()
   -- One file per look: the image is cached by path, so a rewritten file would not show up
-  local look = table.concat({ value, neutral, accent, textColor, font }, "-"):gsub("[^%w%-]", "")
+  local look = table.concat({ value, label and "unknown" or "known", neutral, accent, textColor, font }, "-")
+    :gsub("[^%w%-]", "")
   local path = string.format("%s/dial-%s.svg", dataDir, look)
   if not noctalia.fileExists(path) then
-    noctalia.writeFile(path, dialSvg(value, neutral, accent, textColor, font))
+    noctalia.writeFile(path, dialSvg(value, neutral, accent, textColor, font, label))
   end
   local size = dialSize()
   barWidget.setImage(path, false, size, size)
@@ -71,16 +74,20 @@ local function drawDial(value, neutral, accent, textColor)
 end
 
 local function render()
-  local at = timer.scheduledAt()
+  local status, at = timer.status()
   local value = minutes
+  local label = nil
   local tooltip = noctalia.tr("widget.tooltip_idle", { time = timer.formatLong(minutes) })
   if at then
     value = timer.remainingMinutes(at)
     tooltip = noctalia.tr("widget.tooltip_active", { clock = os.date("%H:%M", at) })
+  elseif status == "unknown" then
+    label = "?"
+    tooltip = noctalia.tr("widget.tooltip_unknown", { time = timer.formatLong(minutes) })
   end
   local neutral = noctalia.getColor("on_surface") or "#ffffff"
   local accent = noctalia.getColor("primary") or neutral
-  drawDial(value, neutral, accent, at and accent or neutral)
+  drawDial(value, neutral, accent, at and accent or neutral, label)
   if tooltip ~= lastTooltip then
     barWidget.setTooltip(tooltip)
     lastTooltip = tooltip

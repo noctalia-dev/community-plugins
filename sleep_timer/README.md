@@ -67,7 +67,10 @@ minutes inside a small dial.
 - **Right click** to cancel a running timer.
 - **Middle click** to open the panel.
 
-While the timer runs, the dial counts down the remaining minutes in the accent color.
+While the timer runs, the dial counts down the remaining minutes in the accent color. A
+`?` in the dial means the plugin could not read the timer from systemd yet: left click
+still starts the timer (systemd refuses a second one) and right click cancels any timer
+of the plugin.
 
 ### Panel
 
@@ -84,7 +87,8 @@ noctalia msg panel-toggle nid25/sleep_timer:panel
 - **Type hours and minutes** in the fields inside the dial, then press Enter or **Start**.
   Start always uses what the fields show: if they hold anything but digits or add up to
   zero, nothing starts and the hint under the dial turns red.
-- **Cancel shutdown** stops a running timer.
+- **Cancel shutdown** stops a running timer. If the plugin could not read the timer from
+  systemd, the panel shows both **Start** and **Cancel shutdown**.
 
 The top row shows the current time and the time the computer will shut down.
 
@@ -92,7 +96,8 @@ The top row shows the current time and the time the computer will shut down.
 
 Add **Sleep Timer** in **Settings → Control Center → Shortcuts**. Click it to open the
 panel; right click starts the timer with the chosen time or cancels a running one. The
-tile is highlighted and shows the remaining time while the timer runs.
+tile is highlighted and shows the remaining time while the timer runs. It shows `?` when
+the plugin could not read the timer from systemd; right click then cancels.
 
 ### How the dials fill
 
@@ -115,12 +120,15 @@ the neutral color again, and so on. 2 h 30 min is two full laps plus half of a t
   state is read with
   `systemctl --user list-timers --all --no-pager --output=json noctalia-sleep-timer.timer`
   when the bar widget or the tile loads, when the panel opens, and every 30 seconds while
-  a timer is running. Nothing is polled while no timer runs.
+  a timer runs or its state is unknown. Nothing is polled once systemd has confirmed
+  that no timer runs.
 - **Source of truth:** the timer unit in systemd. The countdown follows the unit's real
   end time, which moves with clock changes and suspends. It disappears only when systemd
   confirms the unit is stopped or gone; if systemd cannot be asked, the countdown and
-  Cancel stay, and Cancel always asks systemd to stop the unit. Start and Cancel from
-  different places never overlap: while one runs, the others are ignored.
+  Cancel stay, and Cancel always asks systemd to stop the unit. Until systemd has
+  answered, the state is unknown, never idle: every entry then offers Cancel. Start and
+  Cancel from different places never overlap, and a status answer sent before a Start
+  or Cancel began or ended is discarded.
 - **Refused power-off:** if the timer runs out but the system does not power off (for
   example another user is logged in or an application blocks shutdown), the plugin shows
   an error notification. Details are in `journalctl --user -u noctalia-sleep-timer`.

@@ -82,6 +82,27 @@ function M.scheduledAt()
   return at
 end
 
+-- Set only when systemd confirmed that no timer of ours is armed. Without it and without
+-- a cached deadline the state is unknown, which the entries never treat as idle.
+local IDLE_KEY = "idleConfirmed"
+
+-- "armed" (with the cached end time), "idle" (confirmed by systemd) or "unknown" (not
+-- read yet, or systemd could not be asked): then both Start and Cancel are offered
+function M.status()
+  local at = M.scheduledAt()
+  if at then
+    return "armed", at
+  end
+  if noctalia.state.get(IDLE_KEY) == true then
+    return "idle", nil
+  end
+  return "unknown", nil
+end
+
+local function setIdle(confirmed)
+  noctalia.state.set(IDLE_KEY, confirmed)
+end
+
 function M.remainingMinutes(at)
   return math.max(1, math.ceil((at - os.time()) / 60))
 end
@@ -166,7 +187,17 @@ local function busy()
   return type(since) == "number" and noctalia.nowMs() - since < BUSY_EXPIRES_MS
 end
 
+-- Bumped when a Start or Cancel begins and when it ends. A status reply is applied only
+-- if no Start or Cancel began or ended since its query was sent, so an older "no timer"
+-- answer can never delete the deadline of a timer started after it.
+local GENERATION_KEY = "generation"
+
+local function generation()
+  return tonumber(noctalia.state.get(GENERATION_KEY)) or 0
+end
+
 local function setBusy(on)
+  noctalia.state.set(GENERATION_KEY, generation() + 1)
   noctalia.state.set(BUSY_KEY, on and noctalia.nowMs() or false)
 end
 
@@ -213,12 +244,15 @@ function M.start(value, onDone)
   }, function(result)
     if result.exitCode ~= 0 then
       noctalia.notifyError(noctalia.tr("notify.title"), errorText(result))
+      -- The unit may exist after all (that is the usual reason systemd-run fails)
+      setIdle(false)
       finish(onDone)
       -- Most likely a timer of ours the cache lost: pick it up so Cancel is offered
       verify(onDone)
       return
     end
     writeDeadline(at)
+    setIdle(false)
     noctalia.notify(noctalia.tr("notify.started_title"), noctalia.tr("notify.started_body", {
       time = M.formatLong(value),
       clock = os.date("%H:%M", at),
@@ -242,6 +276,7 @@ function M.cancel(onDone)
   systemctl({ "systemctl", "--user", "stop", UNIT .. ".timer" }, function(result)
     if result.exitCode == 0 or result.exitCode == NOT_LOADED then
       clearDeadline()
+      setIdle(true)
       if known or result.exitCode == 0 then
         noctalia.notify(noctalia.tr("notify.cancelled_title"), noctalia.tr("notify.cancelled_body"))
       end
@@ -255,7 +290,12 @@ end
 -- Next power-off of the plugin's timer from `systemctl list-timers` JSON: unix seconds when
 -- armed, false when systemd confirms nothing is pending, nil when the answer is unusable
 local function parseTimers(stdout)
-  local ok, timers = pcall(noctalia.json.decode, stdout or "")
+  stdout = (stdout or ""):match("^%s*(.-)%s*$")
+  if stdout == "" or stdout:match("^%[%s*%]$") then
+    -- No timer matches: an empty list ("[]"), or no output at all
+    return false
+  end
+  local ok, timers = pcall(noctalia.json.decode, stdout)
   if not ok or type(timers) ~= "table" then
     return nil
   end
@@ -279,52 +319,65 @@ local VERIFY_EVERY_MS = 30000
 -- clock changes and suspends), adopts a timer the cache lost, and drops the cache only
 -- when systemd confirms no timer of ours is armed. A failed query changes nothing.
 verify = function(onDone)
-  if not deadlineFile then
+  if not deadlineFile or busy() then
+    -- A running Start or Cancel settles the state itself
     return
   end
+  local sentIn = generation()
   noctalia.state.set(VERIFIED_KEY, noctalia.nowMs())
   systemctl({
     "systemctl", "--user", "list-timers", "--all", "--no-pager", "--output=json", UNIT .. ".timer",
   }, function(result)
-    if result.exitCode ~= 0 or busy() then
-      -- No answer, or a Start/Cancel is running and will settle the state itself
+    if busy() or generation() ~= sentIn then
+      -- A Start or Cancel began or ended meanwhile: this answer may predate it
       return
     end
-    local armedAt = parseTimers(result.stdout)
-    local cached = M.scheduledAt()
+    -- Not "exitCode == 0 and parseTimers(...) or nil": that would turn false into nil
+    local armedAt = nil
+    if result.exitCode == 0 then
+      armedAt = parseTimers(result.stdout)
+    end
     if armedAt == nil then
+      -- No usable answer: the state stays what it was, unknown included
+      noctalia.log(string.format("sleep_timer: unusable timer status (exit %s, timed out %s): stdout %q, stderr %q",
+        tostring(result.exitCode), tostring(result.timedOut), (result.stdout or ""):sub(1, 200),
+        (result.stderr or ""):sub(1, 200)))
       return
-    elseif armedAt == false then
+    end
+    local status, cached = M.status()
+    if armedAt == false then
       if cached and cached <= os.time() and os.time() - cached < POWEROFF_GRACE then
         -- Just fired: the power-off may still be under way, so decide on the next check
         return
       end
-      if cached then
-        clearDeadline()
-        if cached <= os.time() then
-          -- The timer fired and the system is still up: the power-off was refused
-          noctalia.notifyError(noctalia.tr("notify.title"), noctalia.tr("notify.poweroff_failed"))
-        end
-        announce()
-        if onDone then
-          onDone()
-        end
+      if status == "idle" then
+        return
+      end
+      clearDeadline()
+      setIdle(true)
+      if cached and cached <= os.time() then
+        -- The timer fired and the system is still up: the power-off was refused
+        noctalia.notifyError(noctalia.tr("notify.title"), noctalia.tr("notify.poweroff_failed"))
       end
     elseif not cached or math.abs(cached - armedAt) >= 2 then
       writeDeadline(armedAt)
-      announce()
-      if onDone then
-        onDone()
-      end
+      setIdle(false)
+    else
+      return
+    end
+    announce()
+    if onDone then
+      onDone()
     end
   end)
 end
 M.verify = verify
 
--- Called from every entry's update(): while a countdown is cached, one of them checks it
--- against systemd every 30 seconds. Runs nothing while no timer is known.
+-- Called from every entry's update(): unless systemd confirmed that no timer runs, one of
+-- them checks the state every 30 seconds, so an unknown state keeps being retried.
+-- Runs nothing while the plugin is confirmed idle.
 function M.poll(onDone)
-  if not M.scheduledAt() then
+  if M.status() == "idle" then
     return
   end
   local last = noctalia.state.get(VERIFIED_KEY)

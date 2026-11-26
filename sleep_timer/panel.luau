@@ -25,7 +25,8 @@ local dataDir = timer.dataDir
 local pluginDir = noctalia.pluginDir()
 local socketPath = dataDir and (dataDir .. "/dial.sock")
 local minutes = timer.loadMinutes()
-local at = timer.scheduledAt()
+-- "armed", "idle" or "unknown" (see timer.status); unknown offers Start and Cancel
+local status, at = timer.status()
 local trackImage = timer.imageTracker()
 
 -- Drag state: the minutes while dragging are a float, rounded for display
@@ -258,6 +259,46 @@ local function centerRow()
   })
 end
 
+local function hintText()
+  if at then
+    return noctalia.tr("panel.hint_active")
+  elseif invalidInput then
+    return noctalia.tr("panel.hint_invalid")
+  elseif status == "unknown" then
+    return noctalia.tr("panel.hint_unknown")
+  end
+  return noctalia.tr("panel.hint_idle")
+end
+
+local function cancelButton(grow)
+  return ui.button({
+    text = noctalia.tr("panel.cancel"), glyph = "x", variant = "destructive", controlSize = "lg",
+    flexGrow = grow,
+    onClick = function()
+      timer.cancel(render)
+    end,
+  })
+end
+
+local function startButton(grow)
+  return ui.button({
+    text = noctalia.tr("panel.start"), glyph = "player-play", variant = "primary", controlSize = "lg",
+    flexGrow = grow,
+    onClick = startTyped,
+  })
+end
+
+-- Armed: Cancel. Idle: Start. Unknown: both, so a timer the plugin lost track of can
+-- still be cancelled; Start is safe then too, because systemd refuses a second timer.
+local function actions()
+  if at then
+    return cancelButton()
+  elseif status == "unknown" then
+    return ui.row({ gap = 8, align = "stretch" }, { startButton(1), cancelButton(1) })
+  end
+  return startButton()
+end
+
 render = function()
   local value = at and timer.remainingMinutes(at) or minutes
   local shutdownAt = at or (os.time() + minutes * 60)
@@ -291,21 +332,10 @@ render = function()
 
     ui.column({ gap = 2, align = "center" }, {
       ui.label({ text = timer.formatLong(value), fontSize = 22, fontWeight = "bold", color = "on_surface" }),
-      ui.label({
-        text = noctalia.tr(at and "panel.hint_active" or (invalidInput and "panel.hint_invalid" or "panel.hint_idle")),
-        fontSize = 12, color = (invalidInput and not at) and "error" or "on_surface_variant",
-      }),
+      ui.label({ text = hintText(), fontSize = 12, color = (invalidInput and not at) and "error" or "on_surface_variant" }),
     }),
 
-    at and ui.button({
-      text = noctalia.tr("panel.cancel"), glyph = "x", variant = "destructive", controlSize = "lg",
-      onClick = function()
-        timer.cancel(render)
-      end,
-    }) or ui.button({
-      text = noctalia.tr("panel.start"), glyph = "player-play", variant = "primary", controlSize = "lg",
-      onClick = startTyped,
-    }),
+    actions(),
   }))
 end
 
@@ -386,7 +416,7 @@ end
 
 local function refresh()
   local was = at
-  at = timer.scheduledAt()
+  status, at = timer.status()
   if was and not at then
     -- Cancelled: show the chosen time in the fields again
     resetInputs()

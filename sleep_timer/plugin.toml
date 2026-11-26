@@ -1,6 +1,6 @@
 id           = "nid25/sleep_timer"
 name         = "Sleep Timer"
-version      = "2.3.1"
+version      = "2.3.2"
 # 52: translateY (layers over the dial); also pixel streams, module require, gesture defaults
 plugin_api   = 52
 author       = "nid25"

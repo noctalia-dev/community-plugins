@@ -15,7 +15,8 @@
   },
   "widget": {
     "tooltip_idle": "Left click: shut down in {time}. Scroll: change the time. Middle click: open the dial",
-    "tooltip_active": "Shutdown at {clock}. Right click: cancel"
+    "tooltip_active": "Shutdown at {clock}. Right click: cancel",
+    "tooltip_unknown": "Timer state unknown. Left click: shut down in {time}. Right click: cancel a running timer"
   },
   "panel": {
     "now": "NOW",
@@ -28,7 +29,8 @@
     "hint_active": "Counting down. Cancel to keep the computer on",
     "hint_invalid": "Enter a time from 0:01 to 23:59 using digits only",
     "start": "Start",
-    "cancel": "Cancel shutdown"
+    "cancel": "Cancel shutdown",
+    "hint_unknown": "Could not read the timer from systemd. Start or cancel it here"
   },
   "notify": {
     "title": "Sleep Timer",
