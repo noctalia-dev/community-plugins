@@ -536,8 +536,10 @@ class Bridge:
         device = Path(self.config["video_device"])
         if not device.is_char_device() or not os.access(device, os.R_OK | os.W_OK):
             raise OperationError("The configured V4L2 loopback device is missing or not readable/writable")
-        width, height = display_size(adb(serial, "shell", "wm", "size"))
-        if not natural_orientation(adb(serial, "shell", "dumpsys", "input")):
+        # Both checks describe the same target and can share one ADB round trip.
+        display = adb(serial, "shell", "wm size && dumpsys input")
+        width, height = display_size(display)
+        if not natural_orientation(display):
             raise OperationError("Rotate the phone to its natural orientation before starting the preview")
         awake, dim = self.model["keepAwake"], self.model["dim"]
         self.stop_mirror()
@@ -575,28 +577,40 @@ class Bridge:
             raise
 
     def set_selection(self, request):
+        device_id = str(request.get("kde", self.model["selectedKde"]))
+        serial = str(request["serial"]) if "serial" in request else None
+        # Validate before interrupting a working preview or changing preferences.
+        if "kde" in request and device_id and not any(item["id"] == device_id for item in self.model["kde"]):
+            raise OperationError("Unknown KDE Connect device")
+        if serial and not any(item["serial"] == serial and item["state"] == "device" for item in self.model["adb"]):
+            raise OperationError("Choose an authorized ADB device")
+        if device_id == self.model["selectedKde"] and (serial is None or serial == self.model["serial"]):
+            if serial is not None:
+                self.preferences["profiles"][self.selection_key()] = serial
+                save_json(self.data / "devices.json", self.preferences)
+            return
+
         self.cancel_reconnect()
         self.cancel_qr()
+        self.model["selectedKde"] = device_id
+        self.preferences["selectedKde"] = device_id
+        if serial is not None:
+            self.preferences["profiles"][self.selection_key()] = serial
+        self.model["serial"] = self.resolved_serial() if serial is None else serial
+        save_json(self.data / "devices.json", self.preferences)
+        hosts = self.wireless_hosts()
+        self.model.update(phase="idle", phone={}, phoneSerial="", error="",
+                          wirelessHost=hosts[0] if hosts else "", wirelessPort="", wirelessError="")
+        # Drop the old picture and acknowledge the target before process teardown.
+        self.publish()
         if self.recorder is not None:
             self.finish_recording()
         self.stop_mirror()
         self.auto_suppressed = False
-        if "kde" in request:
-            device_id = str(request["kde"])
-            if device_id and not any(item["id"] == device_id for item in self.model["kde"]):
-                raise OperationError("Unknown KDE Connect device")
-            self.model["selectedKde"] = device_id
-            self.preferences["selectedKde"] = device_id
-            self.model["serial"] = self.resolved_serial()
-        if "serial" in request:
-            serial = str(request["serial"])
-            if serial and not any(item["serial"] == serial and item["state"] == "device" for item in self.model["adb"]):
-                raise OperationError("Choose an authorized ADB device")
-            self.preferences.setdefault("profiles", {})[self.model["selectedKde"] or "adb-only"] = serial
-            self.model["serial"] = serial
-        save_json(self.data / "devices.json", self.preferences)
-        hosts = self.wireless_hosts()
-        self.model.update(wirelessHost=hosts[0] if hosts else "", wirelessPort="", wirelessError="")
+        # An explicit switch is a fresh attempt, including when returning to a
+        # phone whose earlier discovery timed out. Do not wait for a full probe.
+        if self.panel_open and self.model["configured"] and not self.model["serial"] and hosts:
+            self.request_reconnect()
 
     def kde_action(self, action, request):
         device = self.selected_kde()
