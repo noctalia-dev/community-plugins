@@ -1,0 +1,85 @@
+id           = "henriksvensson/beszel-desktop"
+name         = "Beszel Desktop"
+version      = "0.3.0"
+plugin_api   = 48
+author       = "henriksvensson"
+license      = "MIT"
+icon         = "cpu-usage"
+description  = "Monitor remote hosts live from a Beszel hub."
+tags         = ["bar", "panel", "service", "system", "indicator"]
+dependencies = ["beszel-ctl"]
+
+[[setting]]
+key             = "ctl_path"
+type            = "string"
+label_key       = "settings.ctl_path.label"
+description_key = "settings.ctl_path.description"
+default         = "beszel-ctl"
+advanced        = true
+
+[[setting]]
+key             = "socket_path"
+type            = "string"
+label_key       = "settings.socket_path.label"
+description_key = "settings.socket_path.description"
+default         = ""
+advanced        = true
+
+[[setting]]
+key             = "stale_seconds"
+type            = "int"
+label_key       = "settings.stale_seconds.label"
+description_key = "settings.stale_seconds.description"
+default         = 5
+min             = 2
+max             = 60
+
+[[setting]]
+key             = "warn_threshold"
+type            = "int"
+label_key       = "settings.warn_threshold.label"
+description_key = "settings.warn_threshold.description"
+default         = 70
+min             = 10
+max             = 99
+
+[[setting]]
+key             = "danger_threshold"
+type            = "int"
+label_key       = "settings.danger_threshold.label"
+description_key = "settings.danger_threshold.description"
+default         = 90
+min             = 11
+max             = 100
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key             = "system"
+  type            = "string"
+  label_key       = "settings.system.label"
+  description_key = "settings.system.description"
+  default         = ""
+
+  [[widget.setting]]
+  key             = "show_host_name"
+  type            = "bool"
+  label_key       = "settings.show_host_name.label"
+  description_key = "settings.show_host_name.description"
+  default         = true
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 380
+height          = "content"
+max_height      = 560
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"

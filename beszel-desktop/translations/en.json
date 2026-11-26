@@ -1,0 +1,70 @@
+{
+  "panel": {
+    "cores": "Cores",
+    "cores_hover": "Core {index}  {pct}%",
+    "cores_summary": "{count} cores  Peak {peak}%",
+    "cpu": "CPU",
+    "empty": "Waiting for live metrics from beszel-relay.",
+    "memory": "Memory",
+    "open_settings": "Plugin settings",
+    "pin_failed_toast": "Could not update bar widget host setting.",
+    "pin_to_bar_tooltip": "Pin {host} to this bar widget",
+    "setup_alt": "Or install via Nix, Cargo, or GitHub Releases, then run `beszel-ctl init`.",
+    "setup_auth_desc": "beszel-relay could not sign in to your Beszel hub. Re-run the setup wizard to update your URL or credentials:",
+    "setup_auth_title": "Check Beszel credentials",
+    "setup_copied": "Copied to clipboard",
+    "setup_copy_init": "Copy setup command",
+    "setup_copy_install": "Copy install & setup command",
+    "setup_init_desc": "beszel-ctl is installed, but beszel-relay is not running yet. Run the setup wizard in a terminal to connect your Beszel hub:",
+    "setup_init_title": "Connect your Beszel hub",
+    "setup_install_desc": "Beszel Desktop streams remote hosts from the local beszel-relay daemon. Paste this into a terminal to install verified binaries and connect your hub:",
+    "setup_install_title": "Install beszel-relay",
+    "title": "Beszel Desktop"
+  },
+  "settings": {
+    "ctl_path": {
+      "description": "Path to the beszel-ctl binary (falls back to ~/.local/bin/beszel-ctl when omitted from PATH).",
+      "label": "beszel-ctl binary"
+    },
+    "danger_threshold": {
+      "description": "Highlight CPU, memory, and core bars in error color at or above this percentage.",
+      "label": "Danger threshold (%)"
+    },
+    "show_host_name": {
+      "description": "Show the Beszel host name next to the CPU and memory metrics in the bar.",
+      "label": "Show host name"
+    },
+    "socket_path": {
+      "description": "Optional override for the beszel-relay Unix socket path. Leave empty for $XDG_RUNTIME_DIR/beszel-relay.sock.",
+      "label": "Relay socket path"
+    },
+    "stale_seconds": {
+      "description": "Mark live metrics stale when no sample arrives within this many seconds.",
+      "label": "Stale threshold (seconds)"
+    },
+    "system": {
+      "description": "Beszel host to show in this bar widget (leave empty for the first available host).",
+      "label": "Host"
+    },
+    "warn_threshold": {
+      "description": "Highlight CPU, memory, and core bars in warning color at or above this percentage.",
+      "label": "Warning threshold (%)"
+    }
+  },
+  "state": {
+    "auth_error": "Authentication error",
+    "connected": "Live",
+    "connecting": "Connecting",
+    "disconnected": "Relay offline",
+    "not_found": "{host} not found",
+    "paused": "Paused",
+    "reconnecting": "Reconnecting",
+    "stale": "Stale"
+  },
+  "tooltip": {
+    "cpu": "CPU",
+    "host": "Host",
+    "memory": "Memory",
+    "status": "Status"
+  }
+}
