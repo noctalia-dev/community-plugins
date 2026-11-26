@@ -14,7 +14,6 @@ local systems = {}
 local historyBySystem = {}
 local historyCapacity = 60
 local hubUrl = nil
-local activeCommand = nil
 local ctlMissing = false
 
 local function shellQuote(str)
@@ -155,7 +154,6 @@ local function startStream()
   local binPath, found = resolveCtlBinary()
   if not found then
     ctlMissing = true
-    activeCommand = nil
     connection = {
       state = "disconnected",
       since_ms = noctalia.nowMs(),
@@ -169,7 +167,6 @@ local function startStream()
 
   ctlMissing = false
   local cmd = buildStreamCommand(binPath)
-  activeCommand = cmd
   noctalia.setUpdateInterval(60000)
   local ok = noctalia.runStream(cmd, onRelayLine)
   if not ok then
@@ -192,19 +189,9 @@ function update()
   end
 end
 
-function onConfigChanged()
-  local binPath, found = resolveCtlBinary()
-  if not found then
-    if not ctlMissing then
-      startStream()
-    end
-    return
-  end
-  local nextCmd = buildStreamCommand(binPath)
-  if ctlMissing or nextCmd ~= activeCommand then
-    startStream()
-  end
-end
+-- Deliberately omit onConfigChanged() so Noctalia restarts the service runtime
+-- on plugin setting edits, tearing down any existing runStream child before
+-- launching the new beszel-ctl stream.
 
 function onResume()
   -- beszel-relay handles wake reconnects over the Unix socket; refresh timestamp so

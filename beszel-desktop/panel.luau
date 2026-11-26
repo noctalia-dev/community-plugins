@@ -15,8 +15,7 @@ local FOOTER_GRAPH_HEIGHT = 62
 local FOOTER_ROW_HEIGHT = 14
 local NET_SCALE_FLOOR_BPS = 10 * 1024
 local MAX_CONTAINERS_SHOWN = 5
-local INSTALL_COMMAND =
-  "curl -fsSL https://raw.githubusercontent.com/henriksvensson/beszel-desktop/main/packaging/install.sh | sh"
+local INSTALL_COMMAND = "cargo install beszel-relay beszel-ctl"
 local INIT_COMMAND = "beszel-ctl init"
 
 local data = noctalia.state.get(STATE_KEY)

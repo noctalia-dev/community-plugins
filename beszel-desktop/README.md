@@ -13,19 +13,27 @@ Monitor remote servers, homelab nodes, and other machines live (~1 Hz) from a [B
 
 ## Requirements
 
-- [`beszel-relay` and `beszel-ctl`](https://github.com/henriksvensson/beszel-desktop) installed on `PATH` (or in `~/.local/bin/`) and connected to a Beszel hub (`>= 0.13.0`).
-  - Quick install & setup (downloads SHA-256-verified binaries and launches `beszel-ctl init`):
+- [`beszel-relay` and `beszel-ctl`](https://github.com/henriksvensson/beszel-desktop) installed on `PATH` (or in `~/.local/bin/` / `~/.cargo/bin/`) and connected to a Beszel hub (`>= 0.13.0`). Install using any of the package-manager or versioned release options, then run `beszel-ctl init`:
+  - **Cargo (crates.io):**
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/henriksvensson/beszel-desktop/main/packaging/install.sh | sh
+    cargo install beszel-relay beszel-ctl
     ```
-  - Or install via Nix / Cargo / [GitHub Releases](https://github.com/henriksvensson/beszel-desktop/releases), then run `beszel-ctl init`.
+  - **Homebrew (Linux):**
+    ```sh
+    brew install henriksvensson/tap/beszel-desktop
+    ```
+  - **Nix flakes:**
+    ```sh
+    nix profile install github:henriksvensson/beszel-desktop
+    ```
+  - **Versioned packages:** Download `.deb`, `.rpm`, or release tarballs (with `SHA256SUMS`) from [GitHub Releases](https://github.com/henriksvensson/beszel-desktop/releases).
 - Noctalia Shell `v5.5+` (`plugin_api = 48`).
 
 ## Usage
 
 1. Install and enable `henriksvensson/beszel-desktop` in **Noctalia Settings → Plugins** (or link `shells/noctalia` into `~/.local/share/noctalia/plugins/beszel-desktop` for local development).
 2. Add **Beszel Desktop** to your bar in **Noctalia Settings → Bar**.
-   - If `beszel-relay` isn't installed or configured yet, clicking the bar widget opens an onboarding card where you can copy the install & setup command in one click; the widget connects automatically as soon as `beszel-ctl init` completes.
+   - If `beszel-relay` isn't installed or configured yet, clicking the bar widget opens an onboarding card with package-manager install instructions and a one-click copy button; the widget connects automatically as soon as `beszel-ctl init` completes.
    - To monitor multiple remote hosts side by side on your bar, add additional **Beszel Desktop** widgets in **Noctalia Settings → Bar** and set **Host** on each instance (unpinned widgets also support scrolling to cycle hosts).
    - Customize what each bar widget displays (host name, CPU, memory, GPU, temperature, disk, and split/combined/download/upload network throughput) independently per bar instance.
 3. Click any host pill to open its attached telemetry panel, or toggle the panel via IPC:
