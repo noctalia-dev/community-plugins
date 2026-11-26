@@ -155,12 +155,19 @@ function update()
       glyphName = "square"
     end
 
-    local statusText = tr("ui.wired", "Wired")
+  local statusText = tr("ui.wired", "Wired")
+
+  if dev.hasBattery then
+    statusText = dev.battery .. "%" .. (dev.isCharging and " ⚡" or "")
+  end
+
+  if dev.dpi and dev.dpi > 0 and t:find("mouse") then
     if dev.hasBattery then
-      statusText = dev.battery .. "%" .. (dev.isCharging and " ⚡" or "")
-    elseif dev.dpi and dev.dpi > 0 and t:find("mouse") then
+      statusText = statusText .. " | " .. dev.dpi .. " DPI"
+    else
       statusText = dev.dpi .. " DPI"
     end
+  end
 
     table.insert(devChildren, ui.row({ align = "center", justify = "space_between" }, {
       ui.row({ gap = 8, align = "center" }, {
