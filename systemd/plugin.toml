@@ -5,7 +5,7 @@ plugin_api  = 24
 author      = "srounce"
 license     = "MIT"
 icon        = "settings-automation"
-description = "Fuzzy-find systemd user and system units from the launcher and start, stop or restart them, or pin a unit to the bar with its state and controls."
+description = "Fuzzy-find systemd user and system units and manage them from the launcher or a bar widget."
 tags        = ["launcher", "bar", "system", "utility"]
 dependencies = ["systemctl"]
 
