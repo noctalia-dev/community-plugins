@@ -1,8 +1,44 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 local M = {}
 local busy, wanted, rendered, imageNode = false, nil, nil, nil
+local pendingPath, latestFallback = nil, nil
 local slot = 0
 local retryAfter = 0
+
+local function launch()
+    if busy or not wanted or not pendingPath or os.time() < retryAfter then
+        return
+    end
+    local request = wanted
+    local path = pendingPath
+    busy = true
+    local started = noctalia.runAsync({"python3", noctalia.pluginDir() .. "/render.py",
+        "--request", request, "--output", path}, function(result)
+        busy = false
+        if not wanted then
+            return
+        end
+        if result.exitCode == 0 then
+            local ok, size = pcall(noctalia.json.decode, result.stdout)
+            if ok and size.width and size.height then
+                rendered = request
+                imageNode = ui.image({key = "wallpaper-clock", path = path,
+                    width = size.width, height = size.height, fit = "contain"})
+                desktopWidget.render(imageNode)
+                if wanted ~= request then
+                    slot = 1 - slot
+                    pendingPath = path:gsub("%-[01]%.png$", "-" .. slot .. ".png")
+                    launch()
+                end
+                return
+            end
+        end
+        retryAfter = os.time() + 30
+        noctalia.log("Wallpaper renderer failed; using native clock: " .. (result.stderr or ""))
+        if latestFallback then desktopWidget.render(latestFallback) end
+    end)
+    if not started then busy = false; retryAfter = os.time() + 30 end
+end
 
 function M.render(content, fallback)
     local id = noctalia.getConfig("renderInstance")
@@ -45,6 +81,7 @@ function M.render(content, fallback)
     content.fontGlassStrength = noctalia.getConfig("fontGlassStrength")
     content.primary = noctalia.getColor("primary") or "#a8c7fa"
     wanted = noctalia.json.encode(content)
+    latestFallback = fallback
     if wanted == rendered and imageNode then desktopWidget.render(imageNode); return end
     if busy or os.time() < retryAfter then
         desktopWidget.render(imageNode or fallback)
@@ -55,34 +92,14 @@ function M.render(content, fallback)
     -- Hex IDs keep filenames unique across instances without trusting IDs as paths.
     local safe = id:gsub(".", function(c) return string.format("%02x", string.byte(c)) end)
     slot = 1 - slot
-    local path = data .. "/wallpaper-" .. safe .. "-" .. slot .. ".png"
-    local request = wanted
-    busy = true
-    local started = noctalia.runAsync({"python3", noctalia.pluginDir() .. "/render.py",
-        "--request", request, "--output", path}, function(result)
-        busy = false
-        if result.exitCode == 0 then
-            local ok, size = pcall(noctalia.json.decode, result.stdout)
-            if ok and size.width and size.height then
-                if wanted == request then
-                    rendered = request
-                    imageNode = ui.image({key = "wallpaper-clock", path = path,
-                        width = size.width, height = size.height, fit = "contain"})
-                    desktopWidget.render(imageNode)
-                end
-                return
-            end
-        end
-        retryAfter = os.time() + 30
-        noctalia.log("Wallpaper renderer failed; using native clock: " .. (result.stderr or ""))
-        desktopWidget.render(fallback)
-    end)
-    if not started then busy = false; retryAfter = os.time() + 30 end
+    pendingPath = data .. "/wallpaper-" .. safe .. "-" .. slot .. ".png"
+    launch()
     if not imageNode then desktopWidget.render(fallback) end
 end
 
 function M.reset()
     wanted, rendered, imageNode = nil, nil, nil
+    pendingPath, latestFallback = nil, nil
 end
 
 return M
