@@ -1,0 +1,132 @@
+id = "claudio-asj/zap"
+name = "Zap"
+version = "0.1.0"
+plugin_api = 56
+author = "claudio-asj"
+license = "MIT"
+dependencies = ["noctalia-zapd"]
+tags = ["communication", "panel"]
+icon = "brand-whatsapp"
+description = "WhatsApp in the bar: unread count, chat list and QR login."
+
+# Runs noctalia-zapd and publishes its events to the shared state.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+# Panel size is fixed per manifest entry, so each size choice is its own panel
+# running the same panel.luau. The "panel_size" setting picks which one opens.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 900
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+
+[[panel]]
+id = "panel_compact"
+entry = "panel.luau"
+width = 720
+height = 520
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+
+[[panel]]
+id = "panel_large"
+entry = "panel.luau"
+width = 1200
+height = 800
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+
+[[panel]]
+id = "panel_full"
+entry = "panel.luau"
+width = "fill"
+height = "fill"
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+
+[[setting]]
+key = "panel_size"
+type = "select"
+label_key = "settings.panel_size.label"
+description_key = "settings.panel_size.description"
+default = "normal"
+options = [
+  { value = "compact", label_key = "settings.panel_size.options.compact" },
+  { value = "normal", label_key = "settings.panel_size.options.normal" },
+  { value = "large", label_key = "settings.panel_size.options.large" },
+  { value = "full", label_key = "settings.panel_size.options.full" },
+]
+
+[[setting]]
+key = "hide_when_empty"
+type = "bool"
+label_key = "settings.hide_when_empty.label"
+description_key = "settings.hide_when_empty.description"
+default = false
+
+[[setting]]
+key = "notifications"
+type = "bool"
+label_key = "settings.notifications.label"
+description_key = "settings.notifications.description"
+default = true
+
+[[setting]]
+key = "notify_private"
+type = "bool"
+label_key = "settings.notify_private.label"
+description_key = "settings.notify_private.description"
+default = false
+
+[[setting]]
+key = "history_limit"
+type = "int"
+label_key = "settings.history_limit.label"
+description_key = "settings.history_limit.description"
+default = 50
+min = 10
+max = 500
+
+[[setting]]
+key = "download_dir"
+type = "string"
+label_key = "settings.download_dir.label"
+description_key = "settings.download_dir.description"
+default = ""
+
+[[setting]]
+key = "media_cache_mb"
+type = "int"
+label_key = "settings.media_cache_mb.label"
+description_key = "settings.media_cache_mb.description"
+default = 500
+min = 50
+max = 10000
+
+[[setting]]
+key = "daemon_path"
+type = "string"
+label_key = "settings.daemon_path.label"
+description_key = "settings.daemon_path.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "demo"
+type = "bool"
+label_key = "settings.demo.label"
+description_key = "settings.demo.description"
+default = false
+advanced = true
