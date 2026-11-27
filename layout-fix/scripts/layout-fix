@@ -62,6 +62,7 @@ KEY_BACKSPACE = 14
 KEY_SPACE = 57
 KEY_ENTER, KEY_KPENTER, KEY_ESC, KEY_TAB = 28, 96, 1, 15
 SHIFT_KEYS = {42, 54}
+NAV_KEYS = {102, 103, 104, 105, 106, 107, 108, 109, 111}  # Home, Up, PgUp, Left, Right, End, Down, PgDn, Delete
 RESET_KEYS = {KEY_ENTER, KEY_KPENTER, KEY_ESC, KEY_TAB}
 CTRL_KEYS, ALT_KEYS, META_KEYS = {29, 97}, {56, 100}, {125, 126}
 
@@ -76,10 +77,25 @@ TYPING_KEYS = set(range(2, 14)) | set(range(16, 28)) | set(range(30, 42)) | {43}
 VOWELS_BY_SCRIPT = {
     "latin": set("aeiou"),        # y omitted on purpose: it alone would make
                                   # "yjhvfkmyj" (нормально) look English
-    "cyrillic": set("аеёиоуыэюя"),
+    "cyrillic": set("аеёиоуыэюяіїєў"),
 }
 CYRILLIC_FORBIDDEN = ("жы", "шы", "чя", "щя", "чю", "щю", "йй", "ьь", "ъъ", "ыы")
 CYRILLIC_BAD_START = "ыъь"
+
+# Common English words where 'y' is the sole vowel
+VOWEL_LESS_LATIN = {
+    "rhythm", "crypt", "fly", "try", "dry", "gym", "myth", "spy", "cry",
+    "why", "psych", "tryst", "lynx", "sync", "lengths", "twelfths", "strengths",
+    "by", "my", "shy", "ply", "sly", "spry", "wry", "hymn", "cyst", "lynch"
+}
+
+# Common developer abbreviations and acronyms that should not be auto-converted
+COMMON_TECH_WORDS = {
+    "buf", "cfg", "var", "dev", "dir", "usr", "bin", "lib", "src", "log",
+    "len", "tmp", "val", "arg", "doc", "net", "app", "sub", "pkg", "num",
+    "ptr", "pos", "idx", "opt", "env", "std", "err", "res", "req", "ctx",
+    "pid", "uid", "gid", "cmd", "nil", "sys", "int", "str", "obj", "msg"
+}
 
 # Layout code -> hunspell dictionary. Only the mismatches need listing;
 # anything else is looked up by its own name (de -> de_*, pl -> pl_*).
@@ -225,7 +241,7 @@ def build_tables(codes):
 def script_of(text):
     """Which script the letters belong to, for the heuristic fallback."""
     for char in text.lower():
-        if "а" <= char <= "я" or char == "ё":
+        if "а" <= char <= "я" or char in "ёіїєў":
             return "cyrillic"
         if "a" <= char <= "z":
             return "latin"
@@ -276,6 +292,16 @@ class Speller:
                 self._start(language, name)
         self.loaded = ", ".join(sorted(self.procs)) or ""
 
+    def close(self):
+        with self.lock:
+            for proc in self.procs.values():
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=1)
+                except Exception:
+                    pass
+            self.procs.clear()
+
     @staticmethod
     def _installed():
         try:
@@ -286,7 +312,7 @@ class Speller:
         found = []
         for line in out.splitlines():
             name = line.strip().rsplit("/", 1)[-1]
-            if re.fullmatch(r"[a-z]{2,3}(_[A-Z]{2})?", name):
+            if re.fullmatch(r"[a-z]{2,3}(_[A-Z]{2})?(-[a-zA-Z0-9_]+)?", name):
                 found.append(name)
         return found
 
@@ -318,7 +344,8 @@ class Speller:
         proc = self.procs.get(language)
         if proc is None or proc.poll() is not None:
             return None
-        if not word or not all(c.isalpha() for c in word):
+        if not word or not (all(c.isalpha() or c in "'’" for c in word)
+                            and word[0].isalpha() and word[-1].isalpha()):
             return []
         with self.lock:
             try:
@@ -382,6 +409,8 @@ class Speller:
         if len(word) < MIN_AUTO_LENGTH:
             return False
         script = script_of(word)
+        if script == "latin" and word.lower() in VOWEL_LESS_LATIN:
+            return True
         vowels = VOWELS_BY_SCRIPT.get(script)
         if vowels is None:
             return False
@@ -412,6 +441,8 @@ class Speller:
         leaving text untouched.
         """
         if len(typed) < MIN_AUTO_LENGTH:
+            return False
+        if typed.lower() in COMMON_TECH_WORDS:
             return False
         typed_known = self._known(typed, typed_language)
         if typed_known:
@@ -497,6 +528,7 @@ class Watcher:
         with self.lock:
             self.keys.clear()
             self.word.clear()
+            self.undo = None
 
     def snapshot(self):
         with self.lock:
@@ -511,22 +543,29 @@ class Watcher:
             if now - self.last_input > IDLE_RESET_SECONDS:
                 self.keys.clear()
                 self.word.clear()
+                self.undo = None
             self.last_input = now
+            if code in NAV_KEYS:
+                # Arrow keys, Delete, Home/End: cursor moved or text deleted
+                self.keys.clear()
+                self.word.clear()
+                self.undo = None
+                return None
             if code == KEY_BACKSPACE:
+                self.undo = None
                 if self.keys:
                     self.keys.pop()
                 if self.word:
                     self.word.pop()
                 return None
             if code in RESET_KEYS:
-                # A newline ends the word too: check it before clearing, or
-                # the last word in a field could never be corrected.
-                finished = self.word if self.auto else None
+                self.undo = None
                 self.keys.clear()
-                self.word = []
-                return finished
+                self.word.clear()
+                return None
             if code not in TYPING_KEYS:
                 return None
+            self.undo = None
             self.keys.append((code, shift))
             if len(self.keys) > MAX_BUFFER:
                 del self.keys[:-MAX_BUFFER]
@@ -553,14 +592,25 @@ class Watcher:
                 _, _, etype, code, value = struct.unpack(EVENT_FORMAT, data)
                 if etype != EV_KEY:
                     continue
+                if value == 2:      # auto-repeat
+                    if code == KEY_BACKSPACE:
+                        with self.lock:
+                            self.undo = None
+                            if self.keys:
+                                self.keys.pop()
+                            if self.word:
+                                self.word.pop()
+                    continue
                 if code in SHIFT_KEYS:
                     shift = value != 0
                     continue
                 if code in CTRL_KEYS:
                     ctrl = value != 0
                     continue
-                if code in ALT_KEYS:
+                if code == 56:      # Left Alt
                     alt = value != 0
+                    continue
+                if code == 100:     # Right Alt / AltGr (Level 3 shift, does not break typing)
                     continue
                 if code in META_KEYS:
                     meta = value != 0
@@ -601,16 +651,17 @@ def render(keys, table):
 
 
 def retype(count, text):
-    """Erase `count` characters and type `text` in their place."""
-    erase = subprocess.run(["wtype"] + ["-k", "BackSpace"] * count,
-                           capture_output=True, text=True, timeout=15)
-    if erase.returncode != 0:
-        log(f"wtype (erase) failed: {erase.stderr.strip()}")
-        return False
-    typed = subprocess.run(["wtype", "--", text], capture_output=True,
-                           text=True, timeout=15)
-    if typed.returncode != 0:
-        log(f"wtype (retype) failed: {typed.stderr.strip()}")
+    """Erase `count` characters and type `text` in their place in a single paced invocation."""
+    cmd = ["wtype"]
+    if count > 0:
+        cmd += ["-k", "BackSpace"] * count
+    if text:
+        cmd += ["--", text]
+    if len(cmd) == 1:
+        return True
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    if res.returncode != 0:
+        log(f"wtype failed: {res.stderr.strip()}")
         return False
     return True
 
@@ -622,17 +673,32 @@ def switch_layout(index):
         log(f"switch-layout failed: {result.stderr.strip()}")
 
 
-def target_layout(watcher):
+def target_layout(watcher, word_keys=None):
     """(current index, other index, their tables and languages) or None."""
     names, current = niri_layouts()
-    if current is None or len(names) < 2:
-        return None
-    other = next((i for i in sorted(names) if i != current and i in watcher.tables), None)
-    if other is None or current not in watcher.tables:
+    if current is None or len(names) < 2 or current not in watcher.tables:
         return None
     codes = LAYOUT_CODES
-    return (current, other, watcher.tables[current], watcher.tables[other],
-            dictionary_for(codes.get(current)), dictionary_for(codes.get(other)))
+    cur_table = watcher.tables[current]
+    cur_lang = dictionary_for(codes.get(current))
+
+    others = [i for i in sorted(names) if i != current and i in watcher.tables]
+    if not others:
+        return None
+
+    chosen_other = others[0]
+    if word_keys and len(others) > 1 and SPELLER is not None:
+        typed = render(word_keys, cur_table)
+        for cand in others:
+            cand_table = watcher.tables[cand]
+            cand_lang = dictionary_for(codes.get(cand))
+            cand_fixed = render(word_keys, cand_table)
+            if cand_fixed and cand_fixed != typed and SPELLER.should_fix(typed, cur_lang, cand_fixed, cand_lang):
+                chosen_other = cand
+                break
+
+    return (current, chosen_other, cur_table, watcher.tables[chosen_other],
+            cur_lang, dictionary_for(codes.get(chosen_other)))
 
 
 def lookback(watcher, word_keys, cur_table, cur_language):
@@ -681,7 +747,10 @@ def autofix(watcher, word_keys, break_code, break_shift):
     """
     if len(word_keys) < MIN_AUTO_LENGTH:
         return
-    resolved = target_layout(watcher)
+    try:
+        resolved = target_layout(watcher, word_keys)
+    except TypeError:
+        resolved = target_layout(watcher)
     if resolved is None:
         return
     current, other, cur_table, alt_table, cur_language, alt_language = resolved
@@ -716,12 +785,19 @@ def autofix(watcher, word_keys, break_code, break_shift):
     log(f"auto-fixed {len(keys)} chars")
 
 
-def do_fix(watcher):
-    keys = watcher.snapshot()
-    log(f"fix requested, {len(keys)} chars buffered")
+def do_fix(watcher, scope="all"):
+    with watcher.lock:
+        if scope == "word":
+            keys = list(watcher.word)
+        else:
+            keys = list(watcher.keys)
+    log(f"fix requested ({scope}), {len(keys)} chars buffered")
     if not keys:
         return "buffer is empty"
-    resolved = target_layout(watcher)
+    try:
+        resolved = target_layout(watcher, keys)
+    except TypeError:
+        resolved = target_layout(watcher)
     if resolved is None:
         return "need two configured layouts"
     current, other, cur_table, alt_table, _, _ = resolved
@@ -731,7 +807,14 @@ def do_fix(watcher):
     if not retype(len(keys), target):
         return "wtype failed, see the journal"
     switch_layout(other)
-    watcher.reset()
+    if scope == "word":
+        with watcher.lock:
+            if len(watcher.keys) >= len(keys):
+                del watcher.keys[len(watcher.keys) - len(keys):]
+            watcher.word.clear()
+            watcher.undo = None
+    else:
+        watcher.reset()
     log(f"fixed {len(keys)} chars")
     return f"fixed {len(keys)} chars"
 
@@ -770,18 +853,28 @@ def serve(watcher):
     if os.path.exists(SOCKET_PATH):
         os.unlink(SOCKET_PATH)
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    server.bind(SOCKET_PATH)
+    old_umask = os.umask(0o077)
+    try:
+        server.bind(SOCKET_PATH)
+    finally:
+        os.umask(old_umask)
     os.chmod(SOCKET_PATH, 0o600)
     server.listen(4)
     while True:
         conn, _ = server.accept()
+        conn.settimeout(2.0)
         with conn:
             try:
-                command = conn.recv(64).decode().strip()
-            except OSError:
+                data = conn.recv(64)
+                if not data:
+                    continue
+                command = data.decode("utf-8", errors="replace").strip()
+            except (OSError, UnicodeDecodeError):
                 continue
-            if command == "fix":
-                reply = do_fix(watcher)
+            if command == "fix" or command == "fix all":
+                reply = do_fix(watcher, scope="all")
+            elif command in {"fix word", "fix-word"}:
+                reply = do_fix(watcher, scope="word")
             elif command == "undo":
                 reply = do_undo(watcher)
             elif command == "toggle":
@@ -789,8 +882,13 @@ def serve(watcher):
                 watcher.reset()
                 reply = "watching" if watcher.enabled else "paused"
             elif command == "reset":
+                global SPELLER
                 watcher.reset()
-                reply = "buffer cleared"
+                if SPELLER is not None:
+                    SPELLER.close()
+                languages = [dictionary_for(LAYOUT_CODES.get(i)) for i in sorted(watcher.tables)]
+                SPELLER = Speller([lang for lang in languages if lang])
+                reply = f"buffer cleared and dictionaries reloaded ({SPELLER.loaded or 'heuristics'})"
             elif command.startswith("auto"):
                 arg = command[4:].strip()
                 if arg in {"on", "off", "toggle"}:
@@ -807,7 +905,7 @@ def serve(watcher):
                          f"{SPELLER.loaded or 'none, using heuristics'}; "
                          f"{watcher.seen_events} keys seen, {watcher.seen_text} accepted]")
             else:
-                reply = "commands: fix | undo | auto [on|off|toggle] | toggle | status | reset"
+                reply = "commands: fix [all|word] | undo | auto [on|off|toggle] | toggle | status | reset"
             try:
                 conn.sendall(reply.encode())
             except OSError:
@@ -833,9 +931,27 @@ def daemon():
             "(is your user in the 'input' group?)")
         return 1
     watcher = Watcher(tables)
-    for path in devices:
-        threading.Thread(target=watcher.read_device, args=(path,), daemon=True).start()
-    log(f"watching {len(devices)} keyboard(s)")
+    active_paths = set()
+
+    def watch_hotplug():
+        while True:
+            try:
+                current_devices = set(keyboards())
+                new_devices = current_devices - active_paths
+                for path in new_devices:
+                    active_paths.add(path)
+                    def _worker(p=path):
+                        try:
+                            watcher.read_device(p)
+                        finally:
+                            active_paths.discard(p)
+                    threading.Thread(target=_worker, daemon=True).start()
+            except Exception:
+                pass
+            time.sleep(3)
+
+    threading.Thread(target=watch_hotplug, daemon=True).start()
+    log(f"watching {len(devices)} keyboard(s) (hotplug enabled)")
     serve(watcher)
     return 0
 
@@ -861,7 +977,10 @@ def main():
         print(" ".join(wanted_dictionaries()))
         return 0
     if command in {"fix", "undo", "toggle", "status", "reset"}:
-        return client(command)
+        arg = sys.argv[2] if len(sys.argv) > 2 else ""
+        return client((command + " " + arg).strip())
+    if command == "fix-word":
+        return client("fix word")
     if command == "auto":
         arg = sys.argv[2] if len(sys.argv) > 2 else ""
         return client(("auto " + arg).strip())
