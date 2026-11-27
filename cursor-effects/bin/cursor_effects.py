@@ -75,6 +75,13 @@ def include_entries(data: dict) -> list[str]:
     return [entry for entry in entries if isinstance(entry, str)]
 
 
+def resolve_include(entry: str) -> Path:
+    path = Path(os.path.expanduser(entry))
+    if not path.is_absolute():
+        path = CONFIG.parent / path
+    return path.resolve()
+
+
 def ensure_include(text: str, effect: str) -> str:
     manifest = None
     if SHADERS.is_dir():
@@ -90,7 +97,8 @@ def ensure_include(text: str, effect: str) -> str:
         raise SystemExit(f"effect manifest not found for {effect!r}")
     rel = manifest.relative_to(CONFIG.parent).as_posix()
     entries = include_entries(tomllib.loads(text))
-    if rel in entries:
+    target = resolve_include(rel)
+    if any(resolve_include(entry) == target for entry in entries):
         return text
     entries.append(rel)
     lines = text.splitlines()
