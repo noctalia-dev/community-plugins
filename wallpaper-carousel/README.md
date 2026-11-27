@@ -20,7 +20,13 @@ Deleting a card moves the file to the XDG trash, so a mistyped key is recoverabl
 - `ffmpeg` for thumbnail generation. If ImageMagick is installed instead, its
   `magick` or `convert` binary is used and `ffmpeg` is not needed.
 - `gio` (GLib) to move a deleted wallpaper to the trash. Without it the file is
-  renamed to `<name>.trashed` next to the original instead of being deleted.
+  renamed to `<name>.trashed` next to the original instead of being deleted, and
+  an already parked copy is never overwritten: the next free `<name>.trashed.N`
+  is used.
+- `realpath` (coreutils) runs before a delete to resolve the wallpaper and the
+  wallpaper folder. A subfolder of the scan can be a symlink pointing elsewhere,
+  and the delete would then move a file from outside the configured folder, so a
+  wallpaper whose real path leaves that folder is listed but not deletable.
 
 ## Usage
 
@@ -84,7 +90,8 @@ been opened at least once since Noctalia started.
 
 - **Processes spawned**: `ffmpeg` (or `magick`/`convert`) once per wallpaper that
   has no cached preview yet, with the output written to the plugin data
-  directory; `gio trash <path>` when a wallpaper is deleted.
+  directory; `realpath -e -- <wallpaper> <folder>` and `gio trash <path>` when a
+  wallpaper is deleted.
 - **Files written**: JPEG previews (640×360) in the plugin data directory, and
   the file system's trash directory when a wallpaper is deleted. Preview files of
   deleted wallpapers are removed with them.

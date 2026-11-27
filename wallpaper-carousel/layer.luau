@@ -493,18 +493,83 @@ local function applyRandom()
   applyItem(items[targetIndex])
 end
 
-local function trashFile(path, cb)
-  -- gio moves the file to the XDG trash, so Alt+D stays undoable from the file
-  -- manager. Without gio the file is parked next to the original instead of
-  -- being deleted for good.
-  if noctalia.commandExists and noctalia.commandExists("gio") then
-    noctalia.runAsync({ "gio", "trash", path }, function(result)
-      cb(result.exitCode == 0, result.stderr)
-    end)
+local function trim(text)
+  return (tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+-- realpath(1) resolves symlinks, which the host API does not expose. Resolve
+-- every path in one call so the answers belong to the same moment.
+local function realPaths(paths, cb)
+  if not noctalia.commandExists or not noctalia.commandExists("realpath") then
+    cb(nil, tr("notify.no_realpath"))
     return
   end
-  local ok, err = noctalia.renameFile(path, path .. ".trashed")
-  cb(ok, err)
+
+  local argv = { "realpath", "-e", "--" }
+  for _, path in ipairs(paths) do argv[#argv + 1] = path end
+
+  local started = noctalia.runAsync(argv, function(result)
+    if result.exitCode ~= 0 then
+      local message = trim(result.stderr)
+      cb(nil, message ~= "" and message or "realpath failed")
+      return
+    end
+    local resolved = {}
+    for line in (result.stdout or ""):gmatch("[^\r\n]+") do
+      resolved[#resolved + 1] = line
+    end
+    if #resolved < #paths then
+      cb(nil, "realpath failed")
+      return
+    end
+    cb(resolved)
+  end)
+
+  if not started then cb(nil, "realpath failed") end
+end
+
+local function insideRoot(target, root)
+  if target == root then return true end
+  local prefix = root:sub(-1) == "/" and root or (root .. "/")
+  return target:sub(1, #prefix) == prefix
+end
+
+local function trashFile(path, root, cb)
+  -- Deletion acts on the file a path resolves to: a scanned subfolder can be a
+  -- symlink pointing anywhere, and gio or a rename would then move a wallpaper
+  -- that lives outside the configured folder (and one the carousel only lists
+  -- by its link path). Refuse anything whose real path leaves the root.
+  realPaths({ path, root }, function(resolved, err)
+    if not resolved then
+      cb(false, err)
+      return
+    end
+    if not insideRoot(resolved[1], resolved[2]) then
+      cb(false, tr("notify.delete_outside"))
+      return
+    end
+
+    -- gio moves the file to the XDG trash, so Alt+D stays undoable from the
+    -- file manager.
+    if noctalia.commandExists and noctalia.commandExists("gio") then
+      noctalia.runAsync({ "gio", "trash", path }, function(result)
+        cb(result.exitCode == 0, trim(result.stderr))
+      end)
+      return
+    end
+
+    -- Without gio the file is parked next to the original instead of being
+    -- deleted for good. renameFile replaces an existing destination, so the
+    -- first free suffix is used and an earlier parked copy is never lost.
+    local parked = path .. ".trashed"
+    local n = 1
+    while noctalia.fileExists(parked) do
+      parked = string.format("%s.trashed.%d", path, n)
+      n = n + 1
+    end
+    local ok, renameErr = noctalia.renameFile(path, parked)
+    cb(ok, renameErr)
+  end)
 end
 
 local function deleteSelected()
@@ -514,7 +579,7 @@ local function deleteSelected()
   local item = items[((selected - 1) % count) + 1]
   if not item then return end
 
-  trashFile(item.path, function(ok, err)
+  trashFile(item.path, lastDir ~= "" and lastDir or resolveDir(), function(ok, err)
     if not ok then
       noctalia.notify(tr("notify.title"), tr("notify.delete_failed") .. ": " .. tostring(err))
       return

@@ -7,7 +7,7 @@ license = "MIT"
 icon = "photo"
 description = "Animated wallpaper carousel with live previews, keyboard navigation and Alt+D to trash."
 tags = ["animation", "panel", "shortcut", "wallpaper"]
-dependencies = ["ffmpeg", "gio"]
+dependencies = ["ffmpeg", "gio", "realpath"]
 
 [[setting]]
 key = "wallpaper_dir"

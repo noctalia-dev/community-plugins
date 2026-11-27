@@ -3,7 +3,9 @@
     "title": "Wallpaper Carousel",
     "switched": "Applied",
     "deleted": "Moved to trash",
-    "delete_failed": "Could not delete"
+    "delete_failed": "Could not delete",
+    "delete_outside": "the file is outside the wallpaper folder",
+    "no_realpath": "realpath is not installed"
   },
   "settings": {
     "orientation": {
