@@ -1,9 +1,24 @@
 {
+  "alerts": {
+    "notification_title": "{host} — Beszel Alert",
+    "setup_already_configured": "All recommended Beszel alerts are already configured.",
+    "setup_enabled": "Enabled {created} recommended Beszel alerts.",
+    "setup_enabled_preserved": "Enabled {created} recommended Beszel alerts ({skipped} existing preserved).",
+    "setup_failed_generic": "Failed to configure Beszel alerts via beszel-ctl.",
+    "setup_failed_title": "{host} — Alert setup failed",
+    "setup_title": "{host} — Beszel Alerts"
+  },
   "panel": {
+    "alerts_configured_tooltip": "{count} Beszel alerts configured on {host} — click to enable any missing defaults (keeps existing)",
+    "alerts_setup_busy": "Configuring recommended Beszel alerts…",
+    "alerts_setup_tooltip": "Enable recommended Beszel alerts for {host} (preserves existing alerts)",
+    "alerts_title_many": "{count} active Beszel alerts",
+    "alerts_title_one": "Active Beszel alert",
     "battery_charging": "Battery charging",
     "battery_discharging": "On battery",
     "battery_full": "Battery full",
     "battery_idle": "Plugged in (holding charge)",
+    "connecting_banner": "Connecting to Beszel hub — showing cached sample from {age} ago",
     "containers": "Containers",
     "containers_count": "{count} active",
     "cores": "Cores",
@@ -22,8 +37,12 @@
     "network_download": "Download",
     "network_peak": "Peak {rate}",
     "network_upload": "Upload",
+    "offline_copy_start": "Copy start command",
+    "offline_desc": "The local beszel-relay daemon is not running or cannot be reached. Start it with systemd, or run `beszel-ctl init` if it is not set up yet:",
+    "offline_title": "Beszel relay offline",
     "open_in_beszel": "Open {host} in Beszel",
     "open_settings": "Plugin settings",
+    "paused_banner": "Live stream paused — showing last sample from {age} ago",
     "pool_degraded": "Degraded storage pool: {pools}",
     "setup_alt": "Or install via Homebrew (brew install henriksvensson/tap/beszel-desktop), Nix, or versioned .deb/.rpm packages from GitHub Releases, then run `beszel-ctl init`.",
     "setup_auth_desc": "beszel-relay could not sign in to your Beszel hub. Re-run the setup wizard to update your URL or credentials:",
@@ -35,6 +54,8 @@
     "setup_init_title": "Connect your Beszel hub",
     "setup_install_desc": "Beszel Desktop streams remote hosts from the local beszel-relay daemon. Install beszel-relay and beszel-ctl from crates.io, then run `beszel-ctl init`:",
     "setup_install_title": "Install beszel-relay",
+    "stale_banner": "Live stream delayed — showing last sample from {age} ago",
+    "stale_reconnecting_banner": "Reconnecting to Beszel hub — showing last sample from {age} ago",
     "swap": "Swap",
     "title": "Beszel Desktop",
     "updates_security_short": "{total} upd ({security} sec)",
@@ -64,6 +85,10 @@
         "split": "Download & upload (split)",
         "upload": "Upload only"
       }
+    },
+    "notify_alerts": {
+      "description": "Send a desktop notification when a Beszel hub alert triggers on a monitored host.",
+      "label": "Alert notifications"
     },
     "panel": {
       "show_containers": {
@@ -141,28 +166,30 @@
     }
   },
   "state": {
-    "auth_error": "Authentication error",
+    "auth_error": "Beszel auth error",
     "connected": "Live",
     "connecting": "Connecting",
-    "disconnected": "Relay offline",
+    "disconnected": "Beszel relay offline",
     "not_found": "{host} not found",
     "paused": "Paused",
     "reconnecting": "Reconnecting",
     "stale": "Stale"
   },
   "tooltip": {
+    "alerts": "Alerts",
     "cpu": "CPU",
     "disk": "Disk",
+    "download": "Download",
     "gpu": "GPU",
     "host": "Host",
     "memory": "Memory",
-    "network": "Network",
     "os": "OS",
     "services": "Services",
     "status": "Status",
     "swap": "Swap",
     "temp": "Temperature",
     "updates": "Updates",
+    "upload": "Upload",
     "uptime": "Uptime"
   }
 }

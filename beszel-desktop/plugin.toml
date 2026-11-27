@@ -1,6 +1,6 @@
 id           = "henriksvensson/beszel-desktop"
 name         = "Beszel Desktop"
-version      = "0.4.0"
+version      = "0.5.1"
 plugin_api   = 48
 author       = "henriksvensson"
 license      = "MIT"
@@ -8,6 +8,13 @@ icon         = "cpu-usage"
 description  = "Monitor remote hosts live from a Beszel hub."
 tags         = ["bar", "panel", "service", "system", "indicator"]
 dependencies = ["beszel-ctl"]
+
+[[setting]]
+key             = "notify_alerts"
+type            = "bool"
+label_key       = "settings.notify_alerts.label"
+description_key = "settings.notify_alerts.description"
+default         = true
 
 [[setting]]
 key             = "warn_threshold"

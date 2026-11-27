@@ -48,6 +48,7 @@ noctalia msg panel-toggle henriksvensson/beszel-desktop:panel
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `notify_alerts` | `bool` | `true` | Send a desktop notification when a Beszel hub alert triggers on a monitored host. |
 | `warn_threshold` | `int` | `70` | Percentage threshold (`10`–`99`) for warning severity coloring. |
 | `danger_threshold` | `int` | `90` | Percentage threshold (`11`–`100`) for danger severity coloring. |
 | `stale_seconds` | `int` | `5` | Seconds without a new sample before metrics are marked stale (`2`–`60`, advanced). |
@@ -84,6 +85,6 @@ Sections automatically hide themselves on hosts that do not report the correspon
 
 ## Notes
 
-- **Spawned processes:** The singleton `service` entry runs one long-lived `beszel-ctl watch --raw --reconnect` process (reading from the local user-only Unix socket `$XDG_RUNTIME_DIR/beszel-relay.sock`) and shares parsed snapshots/samples through `noctalia.state`. Clicking the external-link button in the panel header runs `xdg-open <hub_url>/system/<id>` (scheme-validated `http://` or `https://`, passed via direct argv without shell parsing) to open that host in your Beszel web UI.
-- **Network & credentials:** This plugin makes no network requests, writes no files, and never accesses Beszel hub credentials (credentials stay inside `beszel-relay`).
+- **Spawned processes:** The singleton `service` entry runs one long-lived `beszel-ctl watch --raw --reconnect` process (reading from the local user-only Unix socket `$XDG_RUNTIME_DIR/beszel-relay.sock`) and shares parsed snapshots/samples through `noctalia.state`. Clicking the bell button in the panel header runs `beszel-ctl alerts setup --defaults --system <id> --json` (direct argv, no shell parsing) to enable recommended Beszel hub alerts for that host without overwriting existing rules. Clicking the external-link button in the panel header runs `xdg-open <hub_url>/system/<id>` (scheme-validated `http://` or `https://`, passed via direct argv without shell parsing) to open that host in your Beszel web UI.
+- **Network & credentials:** This plugin makes no network requests, writes no files, and never accesses Beszel hub credentials (credentials stay inside `beszel-relay` / `beszel-ctl` via `systemd-creds`).
 - **Auto-pause:** Disabling the plugin stops the `beszel-ctl` stream, allowing `beszel-relay` to pause upstream `rt_metrics` polling automatically.
