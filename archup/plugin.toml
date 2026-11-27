@@ -1,0 +1,14 @@
+id           = "7sarus/archup"
+name         = "Arch Updater Status"
+version      = "0.2.0"
+plugin_api   = 43
+author       = "7sarus"
+license      = "MIT"
+icon         = "package"
+description  = "Pending Arch/AUR update count with a refresh button and time since last system update."
+tags         = ["desktop", "system", "arch"]
+dependencies = ["yay", "pacman-contrib"]
+
+[[desktop_widget]]
+id    = "updates-desktop"
+entry = "desktop.luau"
