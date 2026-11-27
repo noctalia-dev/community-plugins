@@ -1,0 +1,29 @@
+# Browser Tabs — search and jump to open browser tabs from the Noctalia launcher.
+#
+# Uses tabctl (https://github.com/slastra/tabctl, MIT) to query open tabs
+# across all running browsers (Chromium, Firefox, Brave, Zen, etc.) via D-Bus.
+# The plugin calls `tabctl list --format json` on each query and
+# `tabctl activate <id>` when a result is selected.
+#
+# Requires: tabctl, tabctl-mediator, and the tabctl browser extensions
+# installed in each browser you want to search. Run `tabctl install` once
+# after first setup to register the native messaging manifests.
+
+id = "fennstef/browser-tabs"
+name = "Browser Tabs"
+version = "0.1.0"
+plugin_api = 3
+author = "fennstef"
+license = "MIT"
+dependencies = ["tabctl"]
+tags = ["launcher", "productivity", "desktop"]
+icon = "globe"
+description = "Jump to any open tab in any browser, right from the keyboard — no more Alt-Tab hunting. Powered by tabctl."
+
+[[launcher_provider]]
+id = "browser-tabs"
+entry = "browser-tabs.luau"
+prefix = "bt"
+glyph = "globe"
+include_in_global_search = true
+debounce_ms = 150
