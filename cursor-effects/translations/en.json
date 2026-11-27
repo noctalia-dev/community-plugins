@@ -1,0 +1,9 @@
+{
+  "panel": {
+    "title": "Cursor Effects",
+    "theme": "Theme",
+    "effect": "Cursor effect",
+    "off": "Off",
+    "applied": "Applied"
+  }
+}
