@@ -2,8 +2,12 @@
 -- Tailscale manager panel.
 
 local STATE_KEY = "ts_snapshot"
+local EXIT_NODES_KEY = "ts_exit_nodes"
 local COMMAND_KEY = "ts_command"
 local RESULT_KEY = "ts_action_result"
+
+local parseExitNodes = require("./exit_nodes.luau")
+local exitListOutput = noctalia.state.get(EXIT_NODES_KEY)
 
 local snapshot = noctalia.state.get(STATE_KEY) or {
   available = false,
@@ -19,7 +23,6 @@ local snapshot = noctalia.state.get(STATE_KEY) or {
   ipv6 = "",
   tailnet = "",
   peers = {},
-  exitNodes = {},
   onlineCount = 0,
   peerCount = 0,
   exitNode = "",
@@ -165,7 +168,7 @@ end
 
 local function selectedExit()
   if tab ~= "exit" then return nil end
-  for _, e in ipairs(snapshot.exitNodes or {}) do
+  for _, e in ipairs(parseExitNodes(exitListOutput)) do
     if e.id == selectedId then return e end
   end
   return nil
@@ -315,7 +318,7 @@ end
 
 local function exitRows()
   local rows = {}
-  for _, e in ipairs(snapshot.exitNodes or {}) do
+  for _, e in ipairs(parseExitNodes(exitListOutput)) do
     if matchesFilter(e.name, e.host, e.ip, e.status) then
       local selected = e.id == selectedId
       local text = `{e.name}  ·  {e.ip}`
@@ -659,14 +662,20 @@ noctalia.state.watch(STATE_KEY, function(value)
   if type(value) ~= "table" then return end
   -- Always re-render: toggle flags (routes, advertise exit, LAN, …) live on the snapshot.
   snapshot = value
-  if selectedId ~= "" then
-    if tab == "peers" and not selectedPeer() then
-      selectedId = ""
-    elseif tab == "exit" and not selectedExit() then
-      selectedId = ""
-    end
+  if selectedId ~= "" and tab == "peers" and not selectedPeer() then
+    selectedId = ""
   end
   dirty = true
+end)
+
+noctalia.state.watch(EXIT_NODES_KEY, function(output)
+  exitListOutput = output
+  if tab == "exit" then
+    if selectedId ~= "" and not selectedExit() then
+      selectedId = ""
+    end
+    dirty = true
+  end
 end)
 
 noctalia.state.watch(RESULT_KEY, function(result)
