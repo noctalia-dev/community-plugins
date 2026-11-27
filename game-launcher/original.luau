@@ -11,6 +11,7 @@ local COVER_W = 56
 local COVER_H = 80
 
 local recent = require("./recent.luau")
+local sort = require("./sort.luau")
 -- Key of the selected row; the scroll container reveals it on keyboard moves.
 local function selRowKey()
   if #filtered == 0 or selectedIndex < 0 or selectedIndex >= #filtered then return nil end
@@ -50,6 +51,26 @@ local function buildCommand()
   return "cc -O2 -o " .. binary .. " " .. cSource .. " " .. cReaderSource
 end
 
+-- The build tag also covers the sources, so editing the C files rebuilds the
+-- scanner instead of silently reusing the old binary.
+local function sourceStamp()
+  local parts = {}
+  local sources = { cSource, cReaderSource, noctalia.pluginDir() .. "/sqlite_reader.h" }
+  for _, path in ipairs(sources) do
+    local info = noctalia.fileInfo(path)
+    if type(info) == "table" then
+      table.insert(parts, tostring(tonumber(info.size) or 0) .. ":" .. tostring(tonumber(info.mtime) or 0))
+    else
+      table.insert(parts, "0:0")
+    end
+  end
+  return table.concat(parts, "-")
+end
+
+local function buildTag()
+  return buildCommand() .. "|" .. sourceStamp()
+end
+
 local buildTagFile
 do
   local ok, dir = pcall(noctalia.pluginDataDir)
@@ -59,7 +80,7 @@ end
 local function binaryReady()
   if not noctalia.fileExists(binary) then return false end
   if not buildTagFile then return true end
-  if noctalia.readFile(buildTagFile) ~= buildCommand() then
+  if noctalia.readFile(buildTagFile) ~= buildTag() then
     noctalia.removeFile(binary)
     return false
   end
@@ -67,7 +88,7 @@ local function binaryReady()
 end
 
 local function markBuilt()
-  if buildTagFile then noctalia.writeFile(buildTagFile, buildCommand()) end
+  if buildTagFile then noctalia.writeFile(buildTagFile, buildTag()) end
 end
 
 local function isValidProtocol(cmd)
@@ -108,8 +129,7 @@ local function filterGames(text)
     if filterByRunner(g) then table.insert(pool, g) end
   end
   if text == "" then
-    recent.sortByRecent(pool)
-    filtered = pool
+    filtered = sort.apply(pool)
     return
   end
   local lower = text:lower()
@@ -119,7 +139,21 @@ local function filterGames(text)
       table.insert(result, g)
     end
   end
-  filtered = result
+  filtered = sort.apply(result)
+end
+
+-- Initial highlight: the most recently played game, whatever the sort order.
+local function selectLastPlayed()
+  local newest = sort.newest(filtered)
+  if newest ~= nil then
+    for i, g in ipairs(filtered) do
+      if g.id == newest.id then
+        selectedIndex = i - 1
+        return
+      end
+    end
+  end
+  selectedIndex = 0
 end
 
 local function isImageFile(path)
@@ -249,6 +283,7 @@ local function renderSearchBar()
   return ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "search", size = 14, color = "on_surface_variant" }),
     ui.input({ key = "search_" .. scanCounter, placeholder = "Search games…", onChange = "onSearch", onSubmit = "onSubmitSearch", value = searchText, flexGrow = 1, focus = true }),
+    ui.button({ glyph = "arrows-sort", variant = "ghost", onClick = "onCycleSort", tooltip = "Sort: " .. sort.label() }),
     ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan" }),
   })
 end
@@ -277,7 +312,22 @@ local function renderStatus()
   return nil
 end
 
-local function renderGameRow(g, index, isLastPlayed)
+local function relativeTime(ts)
+  if not ts or ts <= 0 then return "" end
+  local diff = os.time() - ts
+  if diff < 86400 then return "today" end
+  local days = math.floor(diff / 86400)
+  if days == 1 then return "1 day ago" end
+  if days < 30 then return days .. " days ago" end
+  local months = math.floor(days / 30)
+  if months < 12 then
+    return months == 1 and "1 month ago" or (months .. " months ago")
+  end
+  local years = math.floor(days / 365)
+  return years == 1 and "1 year ago" or (years .. " years ago")
+end
+
+local function renderGameRow(g, index, isLastPlayed, lastTs)
   local meta = runnerMeta[g.runner] or { glyph = "app-window", color = "on_surface_variant" }
   local isSelected = (index - 1) == selectedIndex
   local cp = (g.cover and #g.cover > 0) and g.cover or nil
@@ -302,9 +352,14 @@ local function renderGameRow(g, index, isLastPlayed)
     }),
   }
   if isLastPlayed then
+    local when = relativeTime(lastTs)
     table.insert(infoColumn, ui.row({ align = "center", gap = 4 }, {
       ui.glyph({ name = "clock", size = 11, color = "primary" }),
-      ui.label({ text = "Last played", fontSize = 11, color = "primary" }),
+      ui.label({
+        text = when ~= "" and ("Last played · " .. when) or "Last played",
+        fontSize = 11,
+        color = "primary",
+      }),
     }))
   end
   local children = {
@@ -340,9 +395,13 @@ end
 
 local function renderGameList()
   local rows = {}
-  local lastId = searchText == "" and recent.lastId() or nil
+  local lastId, lastTs = nil, 0
+  if searchText == "" then
+    local newest, ts = sort.newest(filtered)
+    if newest then lastId, lastTs = newest.id, ts end
+  end
   for i = 1, #filtered do
-    table.insert(rows, renderGameRow(filtered[i], i, lastId ~= nil and filtered[i].id == lastId))
+    table.insert(rows, renderGameRow(filtered[i], i, lastId ~= nil and filtered[i].id == lastId, lastTs))
   end
   return rows
 end
@@ -454,8 +513,8 @@ function scanGames()
         end
         games = {}
       end
-      selectedIndex = 0
       filterGames(searchText)
+      selectLastPlayed()
     end)
     if not ok3 then
       loading = false
@@ -511,8 +570,8 @@ end
 function onOpen(context)
   noctalia.state.set("o_open", true)
   computeLayout()
-  selectedIndex = 0
   filterGames(searchText)
+  selectLastPlayed()
   render()
   scanGames()
 end
@@ -525,10 +584,21 @@ function onRescan()
   scanGames()
 end
 
+function onCycleSort()
+  sort.cycle()
+  filterGames(searchText)
+  selectLastPlayed()
+  render()
+end
+
 function onSearch(value)
   searchText = value or ""
-  selectedIndex = 0
   filterGames(searchText)
+  if searchText == "" then
+    selectLastPlayed()
+  else
+    selectedIndex = 0
+  end
   render()
 end
 
