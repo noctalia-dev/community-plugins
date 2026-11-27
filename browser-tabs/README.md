@@ -2,8 +2,11 @@
 
 ![Browser Tabs thumbnail](thumbnail.webp)
 
-Search and jump to any open browser tab from the Noctalia launcher, across
-every running browser at once (Chromium, Firefox, Brave, Zen, and others).
+Got twenty tabs open across Chromium and Firefox and can't find the one you
+need? Open the Noctalia launcher, type a few letters of its title or URL, and
+jump straight to it — no more clicking through windows or Alt-Tabbing blind.
+Searches every running browser at once (Chromium, Firefox, Brave, Zen, and
+others), so it doesn't matter which one the tab is actually in.
 
 ## Plugin
 

@@ -18,7 +18,7 @@ license = "MIT"
 dependencies = ["tabctl"]
 tags = ["launcher", "productivity", "desktop"]
 icon = "globe"
-description = "Search and jump to open browser tabs across all browsers, via tabctl."
+description = "Jump to any open tab in any browser, right from the keyboard — no more Alt-Tab hunting. Powered by tabctl."
 
 [[launcher_provider]]
 id = "browser-tabs"
