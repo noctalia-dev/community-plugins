@@ -17,7 +17,7 @@ defaults.
 | --- | --- |
 | ID | `zhangdm/als-brightness` |
 | Entries | Service: `als` |
-| Plugin API level | 24 |
+| Plugin API level | 58 |
 
 The plugin is a single headless service (`als`, entry file `service.luau`): it
 has no bar widget, panel or launcher prefix. Everything is driven by its
@@ -25,14 +25,13 @@ settings and a small number of IPC events.
 
 ## Requirements
 
-- **Noctalia** (the plugin's declared dependency, `noctalia`) at plugin API 43
-  or newer — the `container-color-roles` level (landed upstream after
-  v5.3.0; use a recent git build). The plugin shells out to `noctalia msg`
-  (with an argv table, no shell interpolation) for `status`, `brightness-set`,
-  `keyboard-backlight-set` and `config-reload`; the `keyboard-backlight-set` IPC
-  the keyboard feature drives arrived in v5.0.0-beta.4. The idle handshake
-  events described under [Usage](#usage) flow the other way — your idle policy
-  sends them to the plugin.
+- **Noctalia** (the plugin's declared dependency, `noctalia`) at plugin API 58
+  or newer — the `nightlight-temperature` level. The plugin uses
+  `noctalia.nightlight.setTemperature()` in-process for adaptive colour
+  temperature and shells out to `noctalia msg` (with an argv table, no shell
+  interpolation) for `status`, `brightness-set`, and `keyboard-backlight-set`.
+  The idle handshake events described under [Usage](#usage) flow the other way —
+  your idle policy sends them to the plugin.
 - **Required for the panel feature:** an ambient light sensor
   (`/sys/bus/iio/devices/iio:deviceN` with `in_illuminance_raw` or
   `in_illuminance_input`) and a backlight device under `/sys/class/backlight`.
@@ -119,7 +118,7 @@ Configured in Noctalia's Settings UI, or via
 | `backlight` | `string` | `""` (auto) | Backlight device under `/sys/class/backlight`; validated at start. Restart to apply. |
 | `min_percent` | `string` | `"15"` | Hard floor (percent), so a dark or occluded reading cannot blank the screen. |
 | `max_percent` | `string` | `"100"` | Hard ceiling (percent). |
-| `colortemp` | `bool` | `false` | Also warm the panel toward the ambient colour temperature. Warning: this forces night light on and rewrites `temperature_night`. |
+| `colortemp` | `bool` | `false` | Also warm the panel toward the ambient colour temperature via `noctalia.nightlight.setTemperature()` (keeps night light enabled via `watch()` while active; clears the override when turned off). |
 
 ### The curve
 
@@ -133,26 +132,26 @@ The full node list, one setting each:
 
 | Setting key | Default | Fixed output |
 | --- | --- | --- |
-| `thr_brightness_01` | `1` | Node 1 threshold in raw sensor counts; node outputs 20.8 % brightness. |
-| `thr_brightness_02` | `4` | Node 2 threshold; outputs 30.7 %. |
-| `thr_brightness_03` | `10` | Node 3 threshold; outputs 39.3 %. |
-| `thr_brightness_04` | `30` | Node 4 threshold; outputs 50.6 %. |
-| `thr_brightness_05` | `100` | Node 5 threshold; outputs 63.4 %. |
-| `thr_brightness_06` | `185` | Node 6 threshold; outputs 70 %. |
-| `thr_brightness_07` | `400` | Node 7 threshold; outputs 78.3 %. |
-| `thr_brightness_08` | `1000` | Node 8 threshold; outputs 88.3 %. |
-| `thr_brightness_09` | `2200` | Node 9 threshold; outputs 96.8 %. |
-| `thr_brightness_10` | `16384` | Node 10 threshold (the sensor ceiling); outputs 100 %. |
-| `thr_temperature_01` | `2500` | Temperature node 1 threshold in ambient kelvin; panel output 5100 K. |
-| `thr_temperature_02` | `2700` | Node 2 threshold; panel 5240 K. |
-| `thr_temperature_03` | `3000` | Node 3 threshold; panel 5380 K. |
-| `thr_temperature_04` | `3500` | Node 4 threshold; panel 5520 K. |
-| `thr_temperature_05` | `4000` | Node 5 threshold; panel 5660 K. |
-| `thr_temperature_06` | `4500` | Node 6 threshold; panel 5800 K. |
-| `thr_temperature_07` | `5000` | Node 7 threshold; panel 5940 K. |
-| `thr_temperature_08` | `5500` | Node 8 threshold; panel 6080 K. |
-| `thr_temperature_09` | `6000` | Node 9 threshold; panel 6220 K. |
-| `thr_temperature_10` | `6500` | Node 10 threshold; panel 6500 K. |
+| `thr_brightness_01` | `0` | Node 1 threshold in raw sensor counts; node outputs 20.8 % brightness. |
+| `thr_brightness_02` | `1` | Node 2 threshold; outputs 30.7 %. |
+| `thr_brightness_03` | `3` | Node 3 threshold; outputs 39.3 %. |
+| `thr_brightness_04` | `10` | Node 4 threshold; outputs 50.6 %. |
+| `thr_brightness_05` | `33` | Node 5 threshold; outputs 63.4 %. |
+| `thr_brightness_06` | `61` | Node 6 threshold; outputs 70 %. |
+| `thr_brightness_07` | `560` | Node 7 threshold; outputs 78.3 %. |
+| `thr_brightness_08` | `1680` | Node 8 threshold; outputs 88.3 %. |
+| `thr_brightness_09` | `4800` | Node 9 threshold; outputs 96.8 %. |
+| `thr_brightness_10` | `14200` | Node 10 threshold; outputs 100 %. |
+| `thr_temperature_01` | `2000` | Temperature node 1 threshold in ambient kelvin; panel output 5100 K. |
+| `thr_temperature_02` | `2200` | Node 2 threshold; panel 5240 K. |
+| `thr_temperature_03` | `2500` | Node 3 threshold; panel 5380 K. |
+| `thr_temperature_04` | `3000` | Node 4 threshold; panel 5520 K. |
+| `thr_temperature_05` | `3500` | Node 5 threshold; panel 5660 K. |
+| `thr_temperature_06` | `4000` | Node 6 threshold; panel 5800 K. |
+| `thr_temperature_07` | `4500` | Node 7 threshold; panel 5940 K. |
+| `thr_temperature_08` | `5000` | Node 8 threshold; panel 6080 K. |
+| `thr_temperature_09` | `5500` | Node 9 threshold; panel 6220 K. |
+| `thr_temperature_10` | `6000` | Node 10 threshold; panel 6500 K. |
 
 In the settings rows the **title is just the node id** (`Temp node 8`) and the
 description states what it maps to (`sensor ambient temp mapped -> 6080K` —
@@ -304,9 +303,7 @@ in the plugin: every OSD passes through a single gate in `OsdOverlay::show()` th
 checks `osd.kinds` per kind, but a plugin cannot write config. The plugin's only
 runtime lever, `noctalia msg osd-disable`, is **global** — it would also kill your
 volume, Wi-Fi, Bluetooth and caffeine OSDs. The plugin never toggles the OSD
-override, and it will not touch your OSD settings on your behalf; the colortemp
-feature's own splice of this same file (see below) is a deliberate, documented
-exception.
+override, and it will not touch your OSD settings on your behalf.
 
 Two bonuses worth knowing about:
 
@@ -332,14 +329,13 @@ problem; the change callback is, and it fires for every writer.
 * **`profile.json`** and **`als-brightness.log`** in the plugin's data
   directory (`noctalia.pluginDataDir()`): the learned profile (panel threshold
   observations) and the log ring's output.
-* **The night-light splice:** with `colortemp` on, `[nightlight]
-  temperature_night` in `~/.local/state/noctalia/settings.toml`, edited as text
-  (comments and key order survive) and replaced atomically — written to a
-  `settings.toml.als-brightness.tmp` scratch file next to it, renamed over the
-  original, then `noctalia msg config-reload` is run. The file is returned
-  unchanged when nothing changes.
+* **Runtime night-light override:** with `colortemp` on, the plugin drives
+  `noctalia.nightlight.setTemperature()` in-process (no `settings.toml` edits,
+  no `config-reload`, no OSD) and watches `noctalia.nightlight.watch()` to keep
+  night light enabled at the target temperature while active. Turning
+  `colortemp` off clears the override via `setTemperature(nil)`.
 * **Short-lived `noctalia msg` processes:** `brightness-set`,
-  `keyboard-backlight-set`, `config-reload` and `status`, spawned per event or
+  `keyboard-backlight-set`, and `status`, spawned per event or
   adaptation. Keyboard-backlight writes are UPower-backed (KbdBacklight D-Bus)
   and rootless, but they set **all** keyboard backlights the host sees.
 

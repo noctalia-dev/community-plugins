@@ -15,9 +15,9 @@
 --   curve_source.luau  which curve is live, and why: config readers, precedence,
 --                    learned nudges, and every curve log line (one report)
 --   profile.luau     the learned profile fitted from the owner's overrides
---   colortemp.luau   the night-light config splice and its guard rail
---   temperature.luau the night-light temperature write path: the splice gate
---                    and the applied-K bookkeeping (one function, injected IO)
+--   colortemp.luau   the night-light cadence gate and clamp guard rail
+--   temperature.luau the night-light runtime apply path and watch reconciler
+--                    (pure functions, injected IO)
 --   keyboard.luau    the keyboard-backlight two-state policy (pure decision +
 --                    bookkeeping over injected inputs)
 --
@@ -126,7 +126,7 @@ for k, v in pairs(policy.DEFAULTS) do CFG[k] = v end
 -- the curve-source report live here too, because decide() records observations
 -- and rebuilds the curves as part of the decision. Two fields are written from
 -- IO outcomes, never by decide(): `locked` (the async status poll below) and
--- `applied_k`/`last_temp_s` (temperature.write_path's splice bookkeeping --
+-- `applied_k`/`last_temp_s` (temperature.apply_path's bookkeeping --
 -- its ONE owner, see temperature.luau).
 --
 -- cs is the curve-source report from curve_source.resolve(): which curve the
@@ -274,33 +274,32 @@ end
 -- SESSION.profile / SESSION.cs and wants saving.
 
 -- ── colour temperature ───────────────────────────────────────────────────────
--- Noctalia owns the gamma LUT, so rather than opening a second writer on
--- zwlr_gamma_control_v1 we edit its own setting and ask it to reload. The edit is
--- an atomic replace (write a sibling, rename over the target) so a reader never
--- sees a half-written file, and the content is spliced as text so the user's
--- comments and key order survive.
+-- Noctalia owns the gamma LUT, so we drive it directly through its runtime
+-- night-light API (`noctalia.nightlight.setTemperature` / `setEnabled`),
+-- avoiding config-file splicing, `config-reload`, and OSD popups.
 --
--- The write path itself -- which attempt skips, which performs, and what each
--- does to the applied-K bookkeeping -- is temperature.write_path(): one pure
--- function over an injected environment (the hardware.discover() shape), so
--- every exit path lives in one place and each is named in
--- tests/temperature.test.luau. What is left here is the IO bindings and the
--- executor dispatch.
---
--- perform is forward-declared because the write path hands its action list back
--- to the executor, exactly like decide()'s list.
+-- The write path and watch reconciler live in temperature.luau as pure
+-- functions over an injected environment.
 local perform
 
+local NIGHTLIGHT_ENV = {
+  nightlight_state = function()
+    return noctalia.nightlight and noctalia.nightlight.state() or nil
+  end,
+  set_enabled = function(enabled)
+    if noctalia.nightlight then
+      noctalia.nightlight.setEnabled(enabled)
+    end
+  end,
+  set_temperature = function(kelvin)
+    if noctalia.nightlight then
+      noctalia.nightlight.setTemperature(kelvin)
+    end
+  end,
+}
+
 local function apply_temperature(kelvin, now_s)
-  perform(temperature.write_path(SESSION, kelvin, now_s, {
-    settings_path = HW.paths.settings_path,
-    read_file = noctalia.readFile,
-    write_file = noctalia.writeFile,
-    rename = noctalia.renameFile,
-    reload = function()
-      noctalia.runAsync({ "noctalia", "msg", "config-reload" }, nil, 8000)
-    end,
-  }))
+  perform(temperature.apply_path(SESSION, kelvin, now_s, NIGHTLIGHT_ENV))
 end
 
 -- ── the executor ─────────────────────────────────────────────────────────────
@@ -397,6 +396,12 @@ end
 
 function onConfigChanged()
   reload()
+  if not (CFG.enabled and CFG.colortemp_enabled) and SESSION.applied_k ~= nil then
+    NIGHTLIGHT_ENV.set_temperature(nil)
+    SESSION.applied_k = nil
+    SESSION.last_temp_s = nil
+    log("colortemp: override cleared")
+  end
   if not HW_OK then
     log("config changed; hardware still unavailable -- toggle the plugin to re-probe")
     return
@@ -410,7 +415,7 @@ end
 -- device is missing -- the service idles, says why, and never writes to a panel
 -- it cannot see.
 HW_ENV = { listDir = noctalia.listDir, readFile = noctalia.readFile,
-           outputs = noctalia.outputs, getenv = noctalia.getenv }
+           outputs = noctalia.outputs }
 HW = hardware.discover(HW_ENV,
   { backlight = setting_string("backlight", ""),
     connector = setting_string("connector", "") })
@@ -437,6 +442,14 @@ KBD_MAX = HW.paths.kbd_max ~= nil and read_num(HW.paths.kbd_max) or nil
 
 load_profile()
 reload()
+
+if noctalia.nightlight and noctalia.nightlight.watch then
+  noctalia.nightlight.watch(function(nl_state)
+    if not HW_OK then return end
+    perform(temperature.reconcile_watch(
+      SESSION, nl_state, CFG.enabled and CFG.colortemp_enabled, NIGHTLIGHT_ENV))
+  end)
+end
 
 log(string.format("hardware: als=%s backlight=%s connector=%s%s%s%s",
   tostring(HW.devices.als), tostring(HW.devices.backlight),
