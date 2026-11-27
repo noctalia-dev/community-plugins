@@ -72,6 +72,12 @@ function update()
     poll()
 end
 
+function onIpc(event)
+    if event == "refresh" then
+        poll()
+    end
+end
+
 noctalia.state.watch(refreshKey, poll)
 noctalia.setUpdateInterval(60000)
 poll()

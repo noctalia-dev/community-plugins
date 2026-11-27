@@ -44,14 +44,6 @@ local function refresh()
     noctalia.state.set("refresh", count + 1)
 end
 
-function onClick()
-    refresh()
-end
-
-function onRightClick()
-    refresh()
-end
-
 function onIpc(event)
     if event == "refresh" then
         refresh()

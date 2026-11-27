@@ -17,7 +17,7 @@ Show separate mouse and keyboard battery levels for devices paired to one ASUS R
 
 ## Usage
 
-Enable the plugin and add the ROG Omni Battery widget from **Settings → Bar**. Hover the mouse or keyboard icon or percentage for that device's name and charge status. Left-click or right-click the widget to refresh both readings.
+Enable the plugin and add the ROG Omni Battery widget from **Settings → Bar**. Hover the mouse or keyboard icon or percentage for that device's name and charge status. Left-click or right-click the widget to refresh both readings. You can change either shortcut under the widget's **Actions** settings.
 
 For the optional udev setup, obtain `70-rog-omni-status.rules` from this plugin directory and run the following commands from the directory containing the rule. Reconnect the receiver and wake both devices after reloading the rules.
 
@@ -33,7 +33,7 @@ The rule gives the active local desktop session access to the vendor interface (
 Refresh the widget on demand:
 
 ```sh
-noctalia msg plugin suhoiyis/rog-omni-battery:bar all refresh
+noctalia msg plugin suhoiyis/rog-omni-battery:poll all refresh
 ```
 
 ## Notes

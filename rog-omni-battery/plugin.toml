@@ -1,6 +1,6 @@
 id = "suhoiyis/rog-omni-battery"
 name = "ROG Omni Battery"
-version = "1.0.2"
+version = "1.0.3"
 plugin_api = 43
 author = "Suhoiyis"
 license = "MIT"
@@ -12,6 +12,10 @@ dependencies = ["python3"]
 [[widget]]
 id = "bar"
 entry = "bar.luau"
+
+[widget.actions]
+left = "plugin suhoiyis/rog-omni-battery:poll all refresh"
+right = "plugin suhoiyis/rog-omni-battery:poll all refresh"
 
 [[service]]
 id = "poll"
