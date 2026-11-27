@@ -1,6 +1,6 @@
 id = "suhoiyis/rog-omni-battery"
 name = "ROG Omni Battery"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 43
 author = "Suhoiyis"
 license = "MIT"
