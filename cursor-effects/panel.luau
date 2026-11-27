@@ -1,5 +1,5 @@
 --!nonstrict
--- Cursor Effects: switch Umbriel cursor themes and cursor shader effects.
+-- Cursor Effects: switch Umbriel cursor themes, size, and shader effects.
 -- All config editing happens in bin/cursor_effects.py; this file only renders.
 local HOME = noctalia.expandPath("~")
 local function config_home()
@@ -13,8 +13,22 @@ local CONFIG_HOME = config_home()
 local CONFIG = CONFIG_HOME .. "/umbriel/config.toml"
 local SHADER_DIR = CONFIG_HOME .. "/umbriel/shaders/community/cursor"
 local ICON_DIRS = { HOME .. "/.local/share/icons", HOME .. "/.icons", "/usr/share/icons" }
-local THEME_LABELS = { ["PRTS-Final"] = "PRTS Animated", ["PRTS-Final-Static"] = "PRTS Static" }
+local THEME_LABELS = {
+	["PRTS-Final"] = "PRTS Animated",
+	["PRTS-Final-Static"] = "PRTS Static",
+	["Bibata-Modern-Classic"] = "Bibata",
+	["Adwaita"] = "Adwaita",
+}
 local HELPER = noctalia.pluginDir() .. "/bin/cursor_effects.py"
+
+local DEFAULT_THEME = "Bibata-Modern-Classic"
+local DEFAULT_SIZE = 24
+local DEFAULT_RADIUS = 96
+local MIN_SIZE, MAX_SIZE = 16, 72
+local MIN_RADIUS, MAX_RADIUS = 32, 4096
+local RADIUS_SLIDER_STEPS = 1000
+local RADIUS_LOG_RATIO = math.log(MAX_RADIUS / MIN_RADIUS)
+local PREVIEW_INTERVAL_MS = 120
 
 local function exists(path)
 	return noctalia.fileExists(path)
@@ -26,6 +40,29 @@ local function readFile(path)
 		return value
 	end
 	return ""
+end
+
+local function clamp(value, minimum, maximum)
+	if value < minimum then
+		return minimum
+	end
+	if value > maximum then
+		return maximum
+	end
+	return value
+end
+
+-- The radius range spans two orders of magnitude, so use a logarithmic slider:
+-- low values (where small changes are visible) get most of the track.
+local function radius_to_slider(radius)
+	local clamped = clamp(radius, MIN_RADIUS, MAX_RADIUS)
+	return math.floor(math.log(clamped / MIN_RADIUS) / RADIUS_LOG_RATIO * RADIUS_SLIDER_STEPS + 0.5)
+end
+
+local function slider_to_radius(value)
+	local position = clamp(value, 0, RADIUS_SLIDER_STEPS)
+	local radius = MIN_RADIUS * math.exp(RADIUS_LOG_RATIO * position / RADIUS_SLIDER_STEPS)
+	return clamp(math.floor(radius + 0.5), MIN_RADIUS, MAX_RADIUS)
 end
 
 local function scanThemes()
@@ -47,30 +84,128 @@ local function scanThemes()
 end
 
 local function scanEffects()
-	local effects = {}
+	local effects, radii, seen = {}, {}, {}
 	if exists(SHADER_DIR) then
 		local ok, entries = pcall(noctalia.listDir, SHADER_DIR)
 		for _, dir in ipairs((ok and entries) or {}) do
 			local text = readFile(SHADER_DIR .. "/" .. dir .. "/effect.toml")
-			if text ~= "" and text:find('kind%s*=%s*"cursor"') then
-				for preset in text:gmatch('%[effects%.preset%."([^"]+)"%]') do
-					effects[#effects + 1] = preset
+			local position = 1
+			while true do
+				local start, finish, raw = text:find("%[effects%.preset%.([^%]]+)%]", position)
+				if not start then
+					break
+				end
+				position = finish + 1
+				local array_table = start > 1 and text:sub(start - 1, start - 1) == "["
+				local name = raw:match('^%s*"(.-)"%s*$')
+					or raw:match("^%s*'(.-)'%s*$")
+					or raw:match("^%s*([%w_%-]+)%s*$")
+				local next_header = text:find("\n%s*%[", finish + 1)
+				local body = text:sub(finish + 1, next_header and next_header - 1 or #text)
+				if not array_table and name and not seen[name] and body:find('kind%s*=%s*["\']cursor["\']') then
+					seen[name] = true
+					effects[#effects + 1] = name
+					local radius = tonumber(body:match("radius%s*=%s*(%d+)"))
+					radii[name] = clamp(radius or DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS)
 				end
 			end
 		end
 	end
 	table.sort(effects)
-	return effects
+	return effects, radii
 end
 
-local function current()
+local function readState()
 	local text = readFile(CONFIG)
-	local theme = (text:match("%[input%.cursor%]([^%[]*)") or ""):match('theme%s*=%s*"([^"]*)"') or ""
-	local effect = (text:match("%[effects%]([^%[]*)") or ""):match('cursor%s*=%s*"([^"]*)"') or "off"
-	return theme, effect
+	local cursor = text:match("%[input%.cursor%]([^%[]*)") or ""
+	local theme = cursor:match('theme%s*=%s*"([^"]*)"') or DEFAULT_THEME
+	if theme == "" then
+		theme = DEFAULT_THEME
+	end
+	local size = clamp(tonumber(cursor:match("size%s*=%s*(%d+)")) or DEFAULT_SIZE, MIN_SIZE, MAX_SIZE)
+	local effect = (text:match("%[effects%]([^%[]*)") or ""):match('cursor%s*=%s*"([^"]*)"') or ""
+	if effect == "" or effect == "off" then
+		effect = "off"
+	end
+	return { theme = theme, size = size, effect = effect }
 end
 
-local themes, effects = {}, {}
+local themes, effects, radii = {}, {}, {}
+local state = { theme = DEFAULT_THEME, size = DEFAULT_SIZE, effect = "off", radius = DEFAULT_RADIUS }
+local status, status_error = "", false
+local applying, pending = false, false
+local size_previewed = false
+local last_preview_at = 0
+local last_preview_value = nil
+local radius_text = ""
+local radius_input_rev = 0
+local radius_slider_pos = nil
+local radius_slider_dirty = false
+local size_text = ""
+local size_input_rev = 0
+
+local function preview_size(value, force)
+	if applying then
+		return
+	end
+	local size = math.floor(clamp(value, MIN_SIZE, MAX_SIZE) + 0.5)
+	local now = noctalia.nowMs()
+	if not force and size == last_preview_value then
+		return
+	end
+	if not force and now - last_preview_at < PREVIEW_INTERVAL_MS then
+		return
+	end
+	last_preview_at = now
+	last_preview_value = size
+	local started = noctalia.runAsync({ "umbriel", "config", "set", "input.cursor.size", tostring(size) })
+	if started then
+		size_previewed = true
+	end
+end
+
+local function clear_size_override(callback)
+	if not size_previewed then
+		if callback then
+			callback()
+		end
+		return
+	end
+	size_previewed = false
+	last_preview_value = nil
+	last_preview_at = 0
+	local finished = false
+	local function finish()
+		if finished then
+			return
+		end
+		finished = true
+		if callback then
+			callback()
+		end
+	end
+	local started = noctalia.runAsync({ "umbriel", "config", "unset", "input.cursor.size" }, finish)
+	if not started then
+		finish()
+	end
+end
+
+local function refresh()
+	effects, radii = scanEffects()
+	local next_state = readState()
+	if next_state.effect ~= "off" then
+		next_state.radius = radii[next_state.effect] or DEFAULT_RADIUS
+	else
+		next_state.radius = clamp(state.radius or DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS)
+	end
+	state = next_state
+	size_text = tostring(math.floor(state.size + 0.5))
+	size_input_rev = size_input_rev + 1
+	radius_text = tostring(math.floor(state.radius + 0.5))
+	radius_input_rev = radius_input_rev + 1
+	radius_slider_pos = nil
+	radius_slider_dirty = false
+end
 
 local function grid(items, columns, make)
 	local cols = {}
@@ -94,40 +229,286 @@ local function short(text)
 	return text
 end
 
-local status = ""
+local function statusLabel()
+	if status == "" then
+		return ui.label({ text = "", fontSize = 1 })
+	end
+	return ui.label({
+		text = status,
+		fontSize = 12,
+		color = status_error and "error" or "primary",
+		maxLines = 3,
+	})
+end
 
-local function apply(kind, value)
-	noctalia.runAsync({ "python3", HELPER, kind, value }, function(result)
-		if result.exitCode ~= 0 then
-			local message = result.stderr ~= "" and result.stderr or "helper failed"
-			status = message:gsub("%s+$", ""):sub(1, 160)
-		else
-			status = ""
-		end
+local apply
+
+local function submit_radius(value)
+	if state.effect == "off" then
+		return
+	end
+	local parsed = tonumber(value)
+	if parsed == nil or parsed ~= parsed or parsed == math.huge or parsed == -math.huge then
+		status = noctalia.tr("panel.invalid_radius")
+		status_error = true
 		render()
+		return
+	end
+	local radius = math.floor(clamp(parsed, MIN_RADIUS, MAX_RADIUS) + 0.5)
+	if radius == state.radius then
+		radius_text = tostring(radius)
+		radius_input_rev = radius_input_rev + 1
+		render()
+		return
+	end
+	state.radius = radius
+	radius_text = tostring(radius)
+	radius_input_rev = radius_input_rev + 1
+	apply()
+end
+
+local function submit_size(value)
+	local parsed = tonumber(value)
+	if parsed == nil or parsed ~= parsed or parsed == math.huge or parsed == -math.huge then
+		status = noctalia.tr("panel.invalid_size")
+		status_error = true
+		render()
+		return
+	end
+	local size = math.floor(clamp(parsed, MIN_SIZE, MAX_SIZE) + 0.5)
+	if size == state.size then
+		size_text = tostring(size)
+		size_input_rev = size_input_rev + 1
+		render()
+		return
+	end
+	state.size = size
+	size_text = tostring(size)
+	size_input_rev = size_input_rev + 1
+	preview_size(size, true)
+	apply()
+end
+
+local function finish_apply()
+	applying = false
+	render()
+	if pending then
+		pending = false
+		apply()
+	end
+end
+
+apply = function()
+	if applying then
+		pending = true
+		return
+	end
+	applying = true
+	status = noctalia.tr("panel.applying")
+	status_error = false
+	render()
+
+	local theme = state.theme ~= "" and state.theme or DEFAULT_THEME
+	local size = math.floor(clamp(state.size, MIN_SIZE, MAX_SIZE) + 0.5)
+	local effect = state.effect ~= "" and state.effect or "off"
+	local radius = math.floor(clamp(state.radius or DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS) + 0.5)
+
+	local started = noctalia.runAsync({ "python3", HELPER, "set", theme, tostring(size), effect, tostring(radius) }, function(result)
+		if result.exitCode ~= 0 then
+			local message = result.stderr ~= "" and result.stderr or noctalia.tr("panel.helper_failed")
+			status = message:gsub("%s+$", ""):sub(1, 240)
+			status_error = true
+			refresh()
+		else
+			status = noctalia.tr("panel.applied")
+			status_error = false
+			if effect ~= "off" then
+				radii[effect] = radius
+			end
+		end
+		clear_size_override(finish_apply)
 	end)
+	if not started then
+		status = noctalia.tr("panel.helper_failed")
+		status_error = true
+		refresh()
+		clear_size_override(finish_apply)
+	end
 end
 
 function render()
-	local activeTheme, activeEffect = current()
+	local active = state
 	local all = { "off" }
 	for _, effect in ipairs(effects) do
 		all[#all + 1] = effect
 	end
+
+	local controls = ui.row({ gap = 16, align = "start" }, {
+		ui.column({ flexGrow = 1, gap = 4 }, {
+			ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+				ui.row({ align = "center", gap = 4 }, {
+					ui.label({ text = noctalia.tr("panel.size"), fontSize = 12, color = "on_surface_variant" }),
+					ui.button({
+						glyph = "restore",
+						variant = "ghost",
+						controlSize = "sm",
+						tooltip = noctalia.tr("panel.reset_size"),
+						onClick = function()
+							state.size = DEFAULT_SIZE
+							size_text = tostring(DEFAULT_SIZE)
+							size_input_rev = size_input_rev + 1
+							preview_size(DEFAULT_SIZE, true)
+							apply()
+						end,
+					}),
+				}),
+				ui.row({ align = "center", gap = 4 }, {
+					ui.input({
+						key = "size-input-" .. tostring(size_input_rev),
+						value = tostring(math.floor(active.size + 0.5)),
+						placeholder = "16-72",
+						fontSize = 12,
+						controlSize = "sm",
+						width = 64,
+						onChange = function(value)
+							size_text = value
+						end,
+						onSubmit = function(value)
+							submit_size(value)
+						end,
+					}),
+					ui.button({
+						glyph = "check",
+						variant = "ghost",
+						controlSize = "sm",
+						tooltip = noctalia.tr("panel.apply_size"),
+						onClick = function()
+							submit_size(size_text)
+						end,
+					}),
+				}),
+			}),
+			ui.slider({
+				key = "cursor-size",
+				min = MIN_SIZE,
+				max = MAX_SIZE,
+				step = 1,
+				value = active.size,
+				flexGrow = 1,
+				onChange = function(value)
+					state.size = clamp(tonumber(value) or state.size, MIN_SIZE, MAX_SIZE)
+					preview_size(state.size, false)
+				end,
+				onDragEnd = function(value)
+					state.size = clamp(tonumber(value) or state.size, MIN_SIZE, MAX_SIZE)
+					size_text = tostring(math.floor(state.size + 0.5))
+					size_input_rev = size_input_rev + 1
+					preview_size(state.size, true)
+					apply()
+				end,
+			}),
+		}),
+		ui.column({ flexGrow = 1, gap = 4 }, {
+			ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+				ui.row({ align = "center", gap = 4 }, {
+					ui.label({ text = noctalia.tr("panel.radius"), fontSize = 12, color = "on_surface_variant" }),
+					ui.button({
+						glyph = "restore",
+						variant = "ghost",
+						controlSize = "sm",
+						enabled = active.effect ~= "off",
+						tooltip = noctalia.tr("panel.reset_radius"),
+						onClick = function()
+							if state.effect == "off" then
+								return
+							end
+							state.radius = DEFAULT_RADIUS
+							radius_text = tostring(DEFAULT_RADIUS)
+							radius_input_rev = radius_input_rev + 1
+							apply()
+						end,
+					}),
+				}),
+				ui.row({ align = "center", gap = 4 }, {
+					ui.input({
+						key = "radius-input-" .. tostring(radius_input_rev),
+						value = active.effect == "off" and "" or tostring(math.floor(active.radius + 0.5)),
+						placeholder = noctalia.tr("panel.off"),
+						fontSize = 12,
+						controlSize = "sm",
+						width = 64,
+						enabled = active.effect ~= "off",
+						onChange = function(value)
+							radius_text = value
+						end,
+						onSubmit = function(value)
+							submit_radius(value)
+						end,
+					}),
+					ui.button({
+						glyph = "check",
+						variant = "ghost",
+						controlSize = "sm",
+						enabled = active.effect ~= "off",
+						tooltip = noctalia.tr("panel.apply_radius"),
+						onClick = function()
+							submit_radius(radius_text)
+						end,
+					}),
+				}),
+			}),
+			ui.slider({
+				key = "cursor-radius",
+				min = 0,
+				max = RADIUS_SLIDER_STEPS,
+				value = radius_to_slider(active.radius),
+				enabled = active.effect ~= "off",
+				flexGrow = 1,
+				onChange = function(value)
+					local position = tonumber(value)
+					if position == nil then
+						return
+					end
+					radius_slider_pos = position
+					radius_slider_dirty = position ~= radius_to_slider(state.radius)
+				end,
+				onDragEnd = function()
+					if radius_slider_dirty and radius_slider_pos ~= nil then
+						local next_radius = slider_to_radius(radius_slider_pos)
+						if next_radius ~= state.radius then
+							state.radius = next_radius
+							radius_text = tostring(next_radius)
+							radius_input_rev = radius_input_rev + 1
+							apply()
+						end
+					end
+					radius_slider_dirty = false
+					radius_slider_pos = nil
+				end,
+			}),
+		}),
+	})
+
 	local rows = {
+		controls,
+		ui.separator({ thickness = 1, color = "outline_variant/0.25" }),
 		ui.label({ text = noctalia.tr("panel.theme"), fontSize = 12, fontWeight = "medium", color = "on_surface_variant" }),
-		grid(themes, 4, function(theme)
+		#themes > 0 and grid(themes, 4, function(theme)
 			return ui.button({
 				key = "theme-" .. theme,
 				text = short(THEME_LABELS[theme] or theme),
 				variant = "ghost",
 				contentAlign = "start",
-				selected = theme == activeTheme,
+				selected = theme == active.theme,
 				onClick = function()
-					apply("theme", theme)
+					if state.theme == theme then
+						return
+					end
+					state.theme = theme
+					apply()
 				end,
 			})
-		end),
+		end) or ui.label({ text = noctalia.tr("panel.no_themes"), fontSize = 12, color = "on_surface_variant" }),
 		ui.label({ text = noctalia.tr("panel.effect"), fontSize = 12, fontWeight = "medium", color = "on_surface_variant" }),
 		grid(all, 4, function(effect)
 			return ui.button({
@@ -135,9 +516,18 @@ function render()
 				text = effect == "off" and noctalia.tr("panel.off") or short(effect),
 				variant = "ghost",
 				contentAlign = "start",
-				selected = effect == activeEffect,
+				selected = effect == active.effect,
 				onClick = function()
-					apply("effect", effect)
+					if state.effect == effect then
+						return
+					end
+					state.effect = effect
+					if effect ~= "off" then
+						state.radius = radii[effect] or state.radius or DEFAULT_RADIUS
+					end
+					radius_text = tostring(math.floor(state.radius + 0.5))
+					radius_input_rev = radius_input_rev + 1
+					apply()
 				end,
 			})
 		end),
@@ -146,17 +536,34 @@ function render()
 	panel.render(ui.column({ flexGrow = 1, gap = 10 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold", color = "on_surface" }),
-			ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
+			ui.row({ gap = 4, align = "center" }, {
+				ui.button({
+					glyph = "refresh",
+					variant = "ghost",
+					onClick = function()
+						themes = scanThemes()
+						refresh()
+						render()
+					end,
+				}),
+				ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
+			}),
 		}),
-		status ~= "" and ui.label({ text = status, fontSize = 12, color = "error" }) or ui.label({ text = "", fontSize = 1 }),
+		statusLabel(),
 		ui.scroll({ flexGrow = 1, gap = 4 }, rows),
 	}))
 end
 
 function onOpen(_context)
 	themes = scanThemes()
-	effects = scanEffects()
+	refresh()
+	status = ""
+	status_error = false
 	render()
+end
+
+function onClose()
+	clear_size_override(nil)
 end
 
 function onCloseClicked()

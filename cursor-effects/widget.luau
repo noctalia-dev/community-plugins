@@ -1,6 +1,3 @@
 --!nonstrict
-barWidget.setGlyph("mouse-pointer")
+barWidget.setImage("cursor-icon.png", false, 32)
 barWidget.setTooltip("Cursor Effects")
-barWidget.render(ui.row({ gap = 6, align = "center" }, {
-	ui.label({ text = "Cursor", fontSize = 12, color = "on_surface" }),
-}))

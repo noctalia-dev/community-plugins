@@ -4,6 +4,17 @@
     "theme": "Theme",
     "effect": "Cursor effect",
     "off": "Off",
-    "applied": "Applied"
+    "applied": "Applied",
+    "applying": "Applying…",
+    "size": "Size",
+    "radius": "Effect radius",
+    "reset_size": "Reset to default size",
+    "reset_radius": "Reset to default radius",
+    "apply_radius": "Apply radius",
+    "invalid_radius": "Enter a number between 32 and 4096",
+    "apply_size": "Apply size",
+    "invalid_size": "Enter a number between 16 and 72",
+    "no_themes": "No Xcursor themes found",
+    "helper_failed": "Helper failed"
   }
 }

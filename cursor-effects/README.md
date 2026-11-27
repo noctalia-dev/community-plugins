@@ -1,7 +1,7 @@
 # Cursor Effects
 
-Switch Umbriel cursor themes and cursor shader effects from a Noctalia panel, without
-editing `~/.config/umbriel/config.toml` by hand.
+Switch Umbriel cursor themes, cursor size, and cursor shader effects from a Noctalia
+panel, without editing `~/.config/umbriel/config.toml` by hand.
 
 ## Plugin
 
@@ -12,8 +12,10 @@ editing `~/.config/umbriel/config.toml` by hand.
 
 ## Requirements
 
-- `umbriel` on `PATH` — the panel sends IPC messages to the running compositor.
-- `python3` 3.11 or newer — the panel runs `bin/cursor_effects.py` to edit the config file
+- `umbriel` 0.1.0 or newer on `PATH` — the panel validates the config with
+  `umbriel config validate` and sends IPC messages to the running compositor.
+- `python3` 3.11 or newer — the panel runs `bin/cursor_effects.py` to edit the config
+  file and the selected effect manifest.
 
 The plugin only makes sense on Umbriel.
 
@@ -25,25 +27,36 @@ Add the **Cursor Effects** bar widget, or open the panel directly:
 noctalia msg panel-toggle h465855hgg/cursor-effects:panel
 ```
 
-The panel shows two grids:
+The panel shows:
 
+- **Size** — cursor size from 16 to 72 px; type an exact value in the field
+  (Enter or the check button), drag the slider, or use the restore button for 24
+- **Effect radius** — radius from 32 to 4096 for the selected effect; drag the
+  logarithmic slider, type an exact value in the field (Enter or the check button),
+  or use the restore button for 96
 - **Theme** — every Xcursor theme found in `~/.local/share/icons`,
   `~/.icons` and `/usr/share/icons`
 - **Cursor effect** — every cursor shader preset found in
   `~/.config/umbriel/shaders/community/cursor/*/effect.toml`, plus `Off`
 
-Picking a row writes the selection to `~/.config/umbriel/config.toml`, reloads Umbriel
-and applies the cursor effect immediately.
+Picking a row, entering a value, or releasing a slider applies the change immediately.
+Dragging the size slider previews the new size live and persists it on release.
 
 ## Notes
 
 Files written:
 
-- `~/.config/umbriel/config.toml` — `[input.cursor] theme` and `[effects] cursor`;
-  the chosen effect's `effect.toml` is appended to `[include] files` when missing.
+- `~/.config/umbriel/config.toml` — `[input.cursor] theme`/`size` and
+  `[effects] cursor`; the chosen effect's `effect.toml` is appended to
+  `[include] files` when missing.
+- `~/.config/umbriel/shaders/community/cursor/<name>/effect.toml` — the `radius` of
+  the selected preset. Reinstalling a community effect resets its radius.
 
 Commands spawned:
 
+- `umbriel config set input.cursor.size <n>` — live size preview while dragging
+- `umbriel config unset input.cursor.size` — clears the preview after persisting
+- `umbriel config validate -c <config>`
 - `umbriel msg config-reload`
 - `umbriel msg effect-cursor-set <name>`
 
