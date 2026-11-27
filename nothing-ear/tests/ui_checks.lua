@@ -149,7 +149,51 @@ shown=panelText(hp, 'more')
 assert(shown:find('panel.codec.switching',1,true) and findKey(rendered,'codec-ldac')==nil, 'codec switch in progress')
 hp.writing=nil
 assert(panelText({connected=false, connecting=true, error='not_connected'}):find('panel.connecting',1,true), 'connecting shown')
-print('Writes in flight shown straight away; copy details on More; connecting state')
+-- The panel shows its own click at once, even if the service's "writing"
+-- update never arrives, until the service counts that write as done.
+local watchFn
+noctalia.state.watch=function(k, fn) if k=='nothing_ear_status' then watchFn=fn end end
+panelText(hp, 'more')
+findKey(rendered,'spatial-cinema').props.onClick()
+local labels={} inspect(rendered, {}, labels)
+assert(table.concat(labels,','):find('panel.applying',1,true), 'own spatial click shows applying')
+assert(findKey(rendered,'spatial-cinema').props.fill=='primary/0.18', 'own pick shown as picked')
+watchFn({connected=true, battery=hp.battery, anc=hp.anc, model=hp.model, spatial='concert', codec='aac'})
+labels={} inspect(rendered, {}, labels)
+assert(table.concat(labels,','):find('panel.applying',1,true), 'still applying while the write runs')
+watchFn({connected=true, battery=hp.battery, anc=hp.anc, model=hp.model, spatial='cinema', codec='aac', writes_done={spatial=1}})
+labels={} inspect(rendered, {}, labels)
+assert(not table.concat(labels,','):find('panel.applying',1,true), 'applying ends with the write')
+findKey(rendered,'codec-ldac').props.onClick()
+findKey(rendered,'codec-confirm').props.onClick()
+labels={} inspect(rendered, {}, labels)
+assert(table.concat(labels,','):find('panel.codec.switching',1,true), 'own codec switch shows switching')
+noctalia.state.watch=function() end
+-- Not connected: a Connect button that shows Connecting at once.
+noctalia.state.set=function(_, value) sentCommand=value end
+panelText({connected=false, error='not_connected', device='AA:BB'})
+findKey(rendered,'connect').props.onClick()
+assert(sentCommand.action=='connect-device', 'connect sent')
+labels={} inspect(rendered, {}, labels)
+assert(table.concat(labels,','):find('panel.connecting',1,true), 'connecting shown straight away')
+panelText({connected=false, error='bt_off'})
+assert(findKey(rendered,'connect')==nil, 'no connect while Bluetooth is off')
+-- Switching device opens the list without forgetting the current one.
+local function switchButton(tree)
+ if not tree then return nil end
+ if tree.props and tree.props.tooltip=='panel.devices.switch' then return tree end
+ for _, child in ipairs(tree.children or {}) do local hit=switchButton(child) if hit then return hit end end
+end
+sentCommand=nil
+panelText({connected=false, error='not_connected', device='AA:BB'})
+switchButton(rendered).props.onClick()
+assert(sentCommand.action=='scan-devices', 'switch only scans, never forgets')
+labels={} inspect(rendered, {}, labels)
+assert(table.concat(labels,','):find('panel.devices.switch_title',1,true), 'device list shown')
+findKey(rendered,'devices-back').props.onClick()
+assert(findKey(rendered,'connect'), 'back returns to the device')
+noctalia.state.set=function() end
+print('Writes in flight shown straight away; copy details on More; connecting state; connect and switch')
 
 -- Hide when disconnected: only with the setting on, and not during a restart.
 local visible
@@ -278,8 +322,11 @@ do
   notify=function() end, readFile=function() return nil end, writeFile=function() end,
   json={decode=function(s) return decoded[s] end, encode=function() return '{}' end},
   runAsync=function(argv, cb) table.insert(runs, {argv=argv, cb=cb}) end,
+  commandExists=function() return true end,
+  runStream=function(cmd, fn) streamCmd=cmd onLinkLine=fn return true end,
  }
  dofile(root..'service.luau')
+ assert(streamCmd:find('gdbus monitor',1,true), 'link events watched')
  local function find(word)
   for i = #runs, 1, -1 do
    for _, a in ipairs(runs[i].argv) do if a==word then return runs[i], i end end
@@ -290,6 +337,36 @@ do
   for _, r in ipairs(runs) do for _, a in ipairs(r.argv) do if a==word then n = n + 1 end end end
   return n
  end
+ -- BlueZ's connect/disconnect events move the status at once
+ state.nothing_ear_status = {connected=true}
+ onLinkLine("/org/bluez/hci0/dev_EE_FF: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Device1', {'Connected': <false>}, @as [])")
+ assert(state.nothing_ear_status.connected==true, 'other devices ignored')
+ onLinkLine("/org/bluez/hci0/dev_aa_bb: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Device1', {'Connected': <false>}, @as [])")
+ assert(state.nothing_ear_status.connected==false and state.nothing_ear_status.error=='not_connected', 'disconnect shown at once')
+ local polled = count('status')
+ onLinkLine("/org/bluez/hci0/dev_AA_BB: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Device1', {'Connected': <true>}, @as [])")
+ assert(count('status')==polled+1 and find('sleep'), 'connect read at once, retried until it answers')
+ -- a codec switch restarts the headphones: that drop isn't a disconnect
+ state.nothing_ear_status = {connected=true}
+ decoded.cok = {ok=true}
+ watchers.nothing_ear_command({action='set-codec', value='ldac', nonce='c1'})
+ local drop = "/org/bluez/hci0/dev_AA_BB: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Device1', {'Connected': <false>}, @as [])"
+ onLinkLine(drop)
+ assert(state.nothing_ear_status.connected==true, 'drop during the codec write ignored')
+ find('set-codec').cb({stdout='cok'})
+ onLinkLine(drop)
+ assert(state.nothing_ear_status.connected==true and state.nothing_ear_status.restarting, 'drop during the restart ignored')
+ polled = count('status')
+ onLinkLine("/org/bluez/hci0/dev_AA_BB: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Device1', {'Connected': <true>}, @as [])")
+ assert(count('status')>polled, 'back from the restart read at once')
+ decoded.back = {connected=true, codec='ldac'}
+ find('status').cb({stdout='back'})
+ assert(not state.nothing_ear_status.restarting and state.nothing_ear_status.codec=='ldac', 'restart over once read back')
+ -- a poll that BlueZ says is disconnected doesn't wait for a second failure
+ state.nothing_ear_status = {connected=true}
+ decoded.nc = {ok=false, connected=false, error='not_connected'}
+ find('status').cb({stdout='nc'})
+ assert(state.nothing_ear_status.connected==false, 'not_connected shown after one poll')
  state.nothing_ear_status = {connected=false}
  update()
  local info = assert(find('info'), 'link checked with bluetoothctl')
@@ -309,6 +386,7 @@ do
  assert(count('status')==before, 'no poll while a write runs')
  find('set-spatial').cb({stdout='ok'})
  assert(state.nothing_ear_status.writing.spatial==nil, 'write cleared once done')
+ assert(state.nothing_ear_status.writes_done.spatial==1, 'finished write counted')
  update()
  assert(count('status')>before, 'polls resume after the write')
  -- picking a disconnected device connects it (no MAC pinned in settings)
@@ -316,11 +394,16 @@ do
  watchers.nothing_ear_command({action='select-device', value='CC:DD', nonce='2'})
  find('info').cb({stdout='\tConnected: no\n'})
  local connect = assert(find('connect'), 'bluetoothctl connect for a disconnected pick')
+ assert(state.nothing_ear_status.device=='CC:DD', 'picked device published')
  assert(connect.argv[3]=='CC:DD' and state.nothing_ear_status.connecting, 'connecting shown')
  before = count('status')
  update()
  assert(count('status')==before, 'no polls while connecting')
  connect.cb({})
  assert(count('status')==before+1 and not state.nothing_ear_status.connecting, 'read once connect returns')
+ -- the Connect button on "not connected"
+ watchers.nothing_ear_command({action='connect-device', nonce='3'})
+ find('info').cb({stdout='\tConnected: no\n'})
+ assert(find('connect') ~= connect, 'connect button runs bluetoothctl connect')
  print('Service: link check drives the bar icon, writes pause polling, picks connect')
 end

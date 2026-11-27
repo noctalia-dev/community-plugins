@@ -13,6 +13,61 @@ local sendCommand = shared.sendCommand
 -- "main" or "more"; see tabBar.
 local activeTab = "main"
 
+-- The device list, opened from the header without forgetting the device.
+local picking = false
+
+-- A slow change (spatial audio, codec) or a connect this panel asked for,
+-- shown at once and until the service says it's over, without waiting to
+-- hear it started: some Noctalia versions drop that first update.
+local LOCAL_PENDING_MS = 25000
+local localWrites = {}
+local connectAskedAt = nil
+local sawServiceConnecting = false
+
+local function writesDone(key)
+	return ((status.writes_done or {})[key]) or 0
+end
+
+local function markWriting(key, value)
+	localWrites[key] = { value = value, done = writesDone(key), at = noctalia.nowMs() }
+end
+
+-- The value being written for `key`, from the service or from our own click.
+local function pendingWrite(key)
+	local fromService = (status.writing or {})[key]
+	if fromService ~= nil then
+		return fromService
+	end
+	local mine = localWrites[key]
+	if mine == nil then
+		return nil
+	end
+	if writesDone(key) > mine.done or noctalia.nowMs() - mine.at > LOCAL_PENDING_MS then
+		localWrites[key] = nil
+		return nil
+	end
+	return mine.value
+end
+
+local function markConnecting()
+	connectAskedAt = noctalia.nowMs()
+	sawServiceConnecting = false
+end
+
+local function isConnecting()
+	if status.connecting == true then
+		return true
+	end
+	if connectAskedAt == nil then
+		return false
+	end
+	if status.connected == true or sawServiceConnecting or noctalia.nowMs() - connectAskedAt > LOCAL_PENDING_MS then
+		connectAskedAt = nil
+		return false
+	end
+	return true
+end
+
 local function levelFraction(level)
 	local n = tonumber(level)
 	if n == nil or n < 0 then
@@ -329,7 +384,9 @@ local function spatialControls(modes, current, pending)
 		local selected = (pending or current) == mode
 		local label = noctalia.tr("panel.spatial." .. mode)
 		local function pick()
+			markWriting("spatial", mode)
 			sendCommand("set-spatial", mode)
+			render()
 		end
 		local icon = shared.SPATIAL_ICONS[mode]
 		if icon ~= nil then
@@ -384,7 +441,9 @@ local function codecControls(codecs, current, restarting, switching)
 				variant = "secondary",
 				onClick = function()
 					pendingCodec = nil
+					markWriting("codec", target)
 					sendCommand("set-codec", target)
+					render()
 				end,
 			}),
 			ui.button({
@@ -480,11 +539,18 @@ local function tabBar()
 	})
 end
 
-local function devicePicker(devices)
+-- `current` is the picked device's MAC when switching from it (nil on
+-- first setup); it's marked in the list and Back returns to it.
+local function devicePicker(devices, current)
 	local list = (devices and devices.devices) or {}
 	local sections = {
 		ui.column({ align = "stretch", gap = 6, padding = 12 }, {
-			ui.label({ text = noctalia.tr("widget.not_configured"), fontSize = 14, textAlign = "center", color = "on_surface" }),
+			ui.label({
+				text = noctalia.tr(current and "panel.devices.switch_title" or "widget.not_configured"),
+				fontSize = 14,
+				textAlign = "center",
+				color = "on_surface",
+			}),
 			ui.label({ text = noctalia.tr("panel.guidance"), fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
 		}),
 	}
@@ -492,14 +558,20 @@ local function devicePicker(devices)
 	if #list > 0 then
 		local rows = {}
 		for _, d in ipairs(list) do
+			local isCurrent = current ~= nil and tostring(d.mac):upper() == current:upper()
 			table.insert(rows, ui.button({
 				key = "device-" .. tostring(d.mac),
 				text = tostring(d.name) .. "  ·  " .. tostring(d.mac),
 				glyph = d.likely and "headphones" or "bluetooth",
-				variant = d.likely and "secondary" or "ghost",
+				variant = (isCurrent or (current == nil and d.likely)) and "secondary" or "ghost",
+				selected = isCurrent,
 				contentAlign = "start",
 				onClick = function()
+					picking = false
+					-- connects it too when it isn't connected
+					markConnecting()
 					sendCommand("select-device", d.mac)
+					render()
 				end,
 			}))
 		end
@@ -509,14 +581,28 @@ local function devicePicker(devices)
 		table.insert(sections, ui.label({ text = noctalia.tr("panel.devices.none"), fontSize = 12, color = "on_surface_variant", textAlign = "center" }))
 	end
 
-	table.insert(sections, ui.button({
-		text = noctalia.tr("panel.devices.scan"),
-		glyph = "refresh",
-		variant = "ghost",
-		onClick = function()
-			sendCommand("scan-devices", nil)
-		end,
-	}))
+	local actions = {
+		ui.button({
+			text = noctalia.tr("panel.devices.scan"),
+			glyph = "refresh",
+			variant = "ghost",
+			onClick = function()
+				sendCommand("scan-devices", nil)
+			end,
+		}),
+	}
+	if current ~= nil then
+		table.insert(actions, ui.button({
+			key = "devices-back",
+			text = noctalia.tr("panel.devices.back"),
+			variant = "ghost",
+			onClick = function()
+				picking = false
+				render()
+			end,
+		}))
+	end
+	table.insert(sections, ui.row({ justify = "center", gap = 8 }, actions))
 
 	return ui.column({ gap = 8, align = "stretch" }, sections)
 end
@@ -545,7 +631,7 @@ local function audioControls(s)
 	}
 	-- Only on models that can switch codec and answered the read.
 	local codecs = (s.model or {}).codecs or {}
-	local switching = (s.writing or {}).codec
+	local switching = pendingWrite("codec")
 	if #codecs > 1 and (s.codec ~= nil or s.restarting or switching ~= nil) then
 		table.insert(rows, codecControls(codecs, s.codec, s.restarting == true, switching))
 	end
@@ -572,7 +658,27 @@ local function notConnected(code, connecting)
 			color = "on_surface_variant",
 			textAlign = "center",
 		}))
-		table.insert(rows, ui.row({ justify = "center" }, { copyDetailsButton() }))
+	end
+	if not connecting then
+		local buttons = {}
+		-- Bluetooth being off is for the system's Bluetooth settings to fix.
+		if code ~= "bt_off" then
+			table.insert(buttons, ui.button({
+				key = "connect",
+				text = noctalia.tr("panel.connect"),
+				glyph = "bluetooth",
+				variant = "secondary",
+				onClick = function()
+					markConnecting()
+					sendCommand("connect-device", nil)
+					render()
+				end,
+			}))
+		end
+		if code ~= nil then
+			table.insert(buttons, copyDetailsButton())
+		end
+		table.insert(rows, ui.row({ justify = "center", gap = 8 }, buttons))
 	end
 	return ui.column({ align = "stretch", gap = 8, padding = 24 }, rows)
 end
@@ -581,10 +687,13 @@ function render()
 	local body = {}
 
 	if status.unconfigured then
-		table.insert(body, devicePicker(devicesState))
+		picking = false
+		table.insert(body, devicePicker(devicesState, nil))
+	elseif picking then
+		table.insert(body, devicePicker(devicesState, status.device ~= "" and status.device or nil))
 	else
-		if status.connected ~= true then
-			table.insert(body, notConnected(status.error, status.connecting == true))
+		if status.connected ~= true or isConnecting() then
+			table.insert(body, notConnected(status.error, isConnecting()))
 		else
 			local battery = status.battery or {}
 			local model = status.model or {}
@@ -601,7 +710,7 @@ function render()
 			-- Main holds what gets used every day; the rest is one tap away on More.
 			if activeTab == "more" then
 				local spatialModes = model.spatial or {}
-				local pendingSpatial = (status.writing or {}).spatial
+				local pendingSpatial = pendingWrite("spatial")
 				if #spatialModes > 0 and (status.spatial ~= nil or pendingSpatial ~= nil) then
 					table.insert(body, spatialControls(spatialModes, status.spatial, pendingSpatial))
 					table.insert(body, sectionSeparator())
@@ -642,8 +751,13 @@ function render()
 			glyph = "bluetooth",
 			variant = "ghost",
 			tooltip = noctalia.tr("panel.devices.switch"),
+			selected = picking,
 			onClick = function()
-				sendCommand("forget-device", nil)
+				picking = not picking
+				if picking then
+					sendCommand("scan-devices", nil)
+				end
+				render()
 			end,
 		}))
 	end
@@ -655,7 +769,7 @@ function render()
 			ui.row({ align = "center", gap = 2 }, headerActions),
 		}),
 	}
-	if status.connected == true and not status.unconfigured then
+	if status.connected == true and not status.unconfigured and not picking and not isConnecting() then
 		table.insert(header, tabBar())
 	end
 
@@ -674,6 +788,9 @@ noctalia.state.watch(STATUS_KEY, function(value)
 			customDraft = nil
 		end
 		status = value
+		if value.connecting == true then
+			sawServiceConnecting = true
+		end
 		render()
 	end
 end)
@@ -689,6 +806,7 @@ function onOpen(_context)
 	pendingCodec = nil
 	customDraft = nil
 	activeTab = "main"
+	picking = false
 	sendCommand("panel_open", nil)
 	render()
 end

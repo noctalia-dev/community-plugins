@@ -9,7 +9,7 @@
 
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.6.0"
+version = "0.7.0"
 plugin_api = 43
 author = "zyrex"
 license = "MIT"

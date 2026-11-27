@@ -59,7 +59,8 @@ Enable `zyrex/nothing-ear` in **Settings → Plugins**, then add the `nothing-ea
 
 - If exactly one Nothing/CMF device is paired, it's picked automatically. Otherwise open the panel
   and choose one; if it isn't connected, the plugin asks Bluetooth to connect it. The Bluetooth
-  button (**Switch earbuds**) in the panel header brings the picker back.
+  button in the panel header lists your devices to switch to, without forgetting the current
+  one. When the picked device isn't connected, the panel has a **Connect** button.
 - The panel has two tabs: **Main** (battery, noise control, EQ presets and custom EQ) and **More**
   (spatial audio, low latency, mono, codec).
 - Left-click the bar widget for the panel; right-click cycles noise control
@@ -131,6 +132,7 @@ noctalia msg plugin zyrex/nothing-ear:service all set-mono 1
 noctalia msg plugin zyrex/nothing-ear:service all refresh
 noctalia msg plugin zyrex/nothing-ear:service all scan-devices
 noctalia msg plugin zyrex/nothing-ear:service all select-device AA:BB:CC:DD:EE:FF
+noctalia msg plugin zyrex/nothing-ear:service all connect
 noctalia msg plugin zyrex/nothing-ear:service all forget-device
 
 # Copy a diagnostics report to the clipboard (same as Copy details in the panel).
@@ -159,7 +161,8 @@ python3 ~/.local/state/noctalia/plugins/materialized/community/nothing-ear/scrip
 - Processes: the service runs `scripts/nothing_ear_ctl.py` once per poll or command over a raw
   RFCOMM socket, `bluetoothctl devices Paired` to list devices, `bluetoothctl info`/`show` to
   check the earbuds are connected and explain failures (all read-only), `bluetoothctl connect`
-  when a disconnected device is picked in the panel, and
+  when a disconnected device is picked or **Connect** is pressed, `gdbus monitor` on BlueZ to
+  follow connects and disconnects as they happen (polling covers it without `gdbus`), and
   `scripts/mono_switch.py`, which calls `pactl` to load or unload a `module-remap-sink` named
   `nothing_ear_mono` and move streams onto it.
 - Files: the RFCOMM channel, last-known state, the last five setting changes
@@ -171,8 +174,8 @@ python3 ~/.local/state/noctalia/plugins/materialized/community/nothing-ear/scrip
   companion app sends when it connects, then the change.
 - Polling only runs while the bar number, panel or desktop widget is showing, or auto mono is on
   (slower), and pauses while a setting change is being sent. Otherwise the service only asks
-  `bluetoothctl info` every 4 seconds (no Bluetooth traffic), so the bar icon still follows
-  connects and disconnects. Mono is always turned off when the plugin loads.
+  `bluetoothctl info` every 4 seconds (no Bluetooth traffic). Either way the bar icon and
+  **Hide when disconnected** follow BlueZ's connect and disconnect events straight away. Mono is always turned off when the plugin loads.
 - The noise-mode icons were drawn for this plugin; no Nothing artwork is included.
 - EQ preset indexes were mapped on an Ear (2); the CMF tables come from the projects below.
 - One device at a time.

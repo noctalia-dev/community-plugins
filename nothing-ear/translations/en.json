@@ -30,6 +30,7 @@
       "switching": "Switching… audio stops for about 10 seconds",
       "title": "Bluetooth Codec"
     },
+    "connect": "Connect",
     "connecting": "Connecting…",
     "copy_details": "Copy details",
     "custom_eq": {
@@ -38,9 +39,11 @@
       "treble": "Treble"
     },
     "devices": {
+      "back": "Back",
       "none": "No paired Bluetooth devices found. Pair your earbuds or headphones in your system's Bluetooth settings, then scan again.",
       "scan": "Scan for devices",
-      "switch": "Switch earbuds",
+      "switch": "Switch earbuds or headphones",
+      "switch_title": "Pick earbuds or headphones",
       "title": "Paired Bluetooth Devices"
     },
     "eq": {
@@ -63,7 +66,7 @@
       "no_bt_support": "Your Python can't talk to Bluetooth. Install python3 from your distro's packages.",
       "no_response": "Connected, but the earbuds didn't answer. This model may not be supported yet.",
       "no_service": "These earbuds don't offer the controls this plugin uses, so they may not be supported yet.",
-      "not_connected": "Your earbuds or headphones aren't connected to this computer. Turn them on or take them out of the case, then connect them in your Bluetooth settings.",
+      "not_connected": "Your earbuds or headphones aren't connected to this computer. Turn them on or take them out of the case, then press Connect.",
       "permission": "This user isn't allowed to use Bluetooth.",
       "refused": "The earbuds turned the connection down. If the Nothing X app is open on your phone, close it and try again.",
       "sdp_failed": "The earbuds gave an unexpected answer when asked for their controls.",
