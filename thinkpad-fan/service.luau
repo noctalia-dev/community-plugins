@@ -44,6 +44,17 @@ local function thermalPath()
   return "/sys/class/thermal/" .. z .. "/temp"
 end
 
+-- Some ThinkPads (e.g. E15 Gen 3 AMD) expose no ACPI thermal zones at all.
+-- The EC's CPU temperature is still available through thinkpad_acpi's hwmon;
+-- the platform device path is stable, the hwmonN suffix is not.
+local HWMON_CPU = "/sys/devices/platform/thinkpad_hwmon/hwmon/hwmon*/temp1_input"
+
+local function thermalReadCmd()
+  local zone = shellQuote(thermalPath())
+  return "if [ -r " .. zone .. " ]; then cat " .. zone
+    .. "; else for f in " .. HWMON_CPU .. "; do cat \"$f\"; break; done 2>/dev/null; fi"
+end
+
 local function publish()
   noctalia.state.set(SNAPSHOT, {
     rpm = snapshot.rpm,
@@ -84,7 +95,7 @@ local function readSysfs()
   end
   reading = true
   local cmd = "cat " .. shellQuote(FAN_PATH) .. " 2>/dev/null; echo " .. SEP
-    .. "; cat " .. shellQuote(thermalPath()) .. " 2>/dev/null"
+    .. "; " .. thermalReadCmd()
   local launched = noctalia.runAsync(cmd, function(res)
     reading = false
     local out = res.stdout or ""
