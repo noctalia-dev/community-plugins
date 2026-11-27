@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Render position-aware gradients, frosted glyphs, and wallpaper-backed glass."""
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
 import subprocess
 
 from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps, ImageStat
+
+Image.MAX_IMAGE_PIXELS = None
+SHADOW_LUT = [round(v * .22) for v in range(256)]
 
 
 def luminance(color):
@@ -39,8 +43,6 @@ def font(settings, kind, directory, scale):
     name = "Smooch-Regular.ttf" if kind == "day" else ("Outfit-Bold.ttf" if bold else "Outfit-Regular.ttf")
     path = Path(directory) / name
     if family not in ("", "ccdefault"):
-        # fc-match comes from optional fontconfig. Keep the bundled Outfit/Smooch
-        # face when fontconfig is absent, times out, or cannot resolve the family.
         try:
             found = subprocess.run(["fc-match", "-f", "%{file}", family + (":style=Bold" if bold else "")],
                                    check=True, capture_output=True, text=True, timeout=3).stdout
@@ -50,18 +52,92 @@ def font(settings, kind, directory, scale):
     return ImageFont.truetype(str(path), max(1, round(settings[kind + "FontSize"] * scale)))
 
 
+def fast_blur(image, radius):
+    if radius < 8:
+        return image.filter(ImageFilter.GaussianBlur(radius))
+    w, h = image.size
+    sw, sh = max(1, w // 4), max(1, h // 4)
+    small = image.resize((sw, sh), Image.Resampling.BILINEAR)
+    blurred = small.filter(ImageFilter.GaussianBlur(radius / 4))
+    return blurred.resize((w, h), Image.Resampling.BILINEAR)
+
+
 def projected_wallpaper(image, output, fill):
     size = (max(1, round(output["width"])), max(1, round(output["height"])))
-    if fill == "stretch": return image.resize(size, Image.Resampling.LANCZOS)
-    if fill == "crop": return ImageOps.fit(image, size, Image.Resampling.LANCZOS)
+    if fill == "stretch": return image.resize(size, Image.Resampling.BICUBIC)
+    if fill == "crop": return ImageOps.fit(image, size, Image.Resampling.BICUBIC)
     canvas = Image.new("RGB", size, (0, 0, 0))
-    if fill == "fit": image = ImageOps.contain(image, size, Image.Resampling.LANCZOS)
+    if fill == "fit": image = ImageOps.contain(image, size, Image.Resampling.BICUBIC)
     if fill == "repeat":
         for y in range(0, size[1], image.height):
             for x in range(0, size[0], image.width): canvas.paste(image, (x, y))
     else:
         canvas.paste(image, ((size[0] - image.width) // 2, (size[1] - image.height) // 2))
     return canvas
+
+
+def load_projected(request, cache_dir):
+    output = request["output"]
+    fill = request.get("fill", "crop")
+    key_payload = json.dumps({
+        "wallpaper": request["wallpaper"],
+        "mtime": request.get("mtime"),
+        "fill": fill,
+        "output": output,
+        "outputs": request.get("outputs") if fill == "span" else None,
+    }, sort_keys=True).encode()
+    digest = hashlib.sha256(key_payload).hexdigest()[:16]
+    cache_path = cache_dir / f".projected-{digest}.bmp"
+    if cache_path.exists():
+        try:
+            with Image.open(cache_path) as cached:
+                return cached.convert("RGB")
+        except Exception:
+            pass
+
+    target_w = max(1, round(output["width"]) * 2)
+    target_h = max(1, round(output["height"]) * 2)
+    with Image.open(request["wallpaper"]) as source:
+        if source.format == "JPEG" and fill in ("crop", "fit", "stretch"):
+            source.draft("RGB", (target_w, target_h))
+        source = ImageOps.exif_transpose(source).convert("RGB")
+        if fill in ("crop", "fit", "stretch") and (source.width > target_w or source.height > target_h):
+            source.thumbnail((target_w, target_h), Image.Resampling.BILINEAR)
+        if fill == "span":
+            outputs = request.get("outputs", [output])
+            left = min(o.get("x", 0) for o in outputs)
+            top = min(o.get("y", 0) for o in outputs)
+            right = max(o.get("x", 0) + o["width"] for o in outputs)
+            bottom = max(o.get("y", 0) + o["height"] for o in outputs)
+            virtual = ImageOps.fit(source, (round(right-left), round(bottom-top)), Image.Resampling.BICUBIC)
+            x, y = output.get("x", 0)-left, output.get("y", 0)-top
+            projected = virtual.crop((x, y, x+output["width"], y+output["height"]))
+        else:
+            projected = projected_wallpaper(source, output, fill)
+
+    try:
+        for old in cache_dir.glob(".projected-*.bmp"):
+            if old != cache_path:
+                old.unlink(missing_ok=True)
+        tmp_cache = cache_path.with_suffix(".bmp.tmp")
+        projected.save(tmp_cache, format="BMP")
+        tmp_cache.replace(cache_path)
+    except OSError:
+        pass
+    return projected
+
+
+def load_backdrop(request, width, height, region_w, region_h, cache_dir):
+    widget, output = request["widget"], request["output"]
+    projected = load_projected(request, cache_dir)
+    cx, cy = widget.get("cx", output["width"]/2), widget.get("cy", output["height"]/2)
+    angle = widget.get("rotation", 0)
+    # Sample in the clock's own orientation so moving/rotating it stays aligned.
+    cosine, sine = math.cos(angle), math.sin(angle)
+    sx, sy = region_w / width, region_h / height
+    return projected.transform((width, height), Image.Transform.AFFINE,
+        (cosine*sx, -sine*sy, cx-cosine*region_w/2+sine*region_h/2,
+         sine*sx, cosine*sy, cy-sine*region_w/2-cosine*region_h/2), Image.Resampling.BICUBIC)
 
 
 def render(request, destination):
@@ -83,34 +159,14 @@ def render(request, destination):
     widget, output = request["widget"], request["output"]
     fit = min(widget["box_width"] / (width / scale), widget["box_height"] / (height / scale)) if widget.get("box_width", 0) > 0 and widget.get("box_height", 0) > 0 else 1
     region_w, region_h = width / scale * fit, height / scale * fit
-    with Image.open(request["wallpaper"]) as source:
-        source = ImageOps.exif_transpose(source).convert("RGB")
-        fill = request.get("fill", "crop")
-        if fill == "span":
-            outputs = request.get("outputs", [output])
-            left = min(o.get("x", 0) for o in outputs)
-            top = min(o.get("y", 0) for o in outputs)
-            right = max(o.get("x", 0) + o["width"] for o in outputs)
-            bottom = max(o.get("y", 0) + o["height"] for o in outputs)
-            virtual = ImageOps.fit(source, (round(right-left), round(bottom-top)), Image.Resampling.LANCZOS)
-            x, y = output.get("x", 0)-left, output.get("y", 0)-top
-            projected = virtual.crop((x, y, x+output["width"], y+output["height"]))
-        else:
-            projected = projected_wallpaper(source, output, fill)
-        cx, cy = widget.get("cx", output["width"]/2), widget.get("cy", output["height"]/2)
-        angle = widget.get("rotation", 0)
-        # Sample in the clock's own orientation so moving/rotating it stays aligned.
-        cosine, sine = math.cos(angle), math.sin(angle)
-        sx, sy = region_w / width, region_h / height
-        backdrop = projected.transform((width, height), Image.Transform.AFFINE,
-            (cosine*sx, -sine*sy, cx-cosine*region_w/2+sine*region_h/2,
-             sine*sx, cosine*sy, cy-sine*region_w/2-cosine*region_h/2), Image.Resampling.BICUBIC)
+    destination = Path(destination)
+    backdrop = load_backdrop(request, width, height, region_w, region_h, destination.parent)
 
     original_backdrop = backdrop.copy()
     canvas = Image.new("RGBA", (width, height))
     if request.get("glass"):
         strength = max(0, min(1, request.get("glassStrength", .5)))
-        glass = ImageEnhance.Color(backdrop.filter(ImageFilter.GaussianBlur((8 + strength*22)*scale))).enhance(.75).convert("RGBA")
+        glass = ImageEnhance.Color(fast_blur(backdrop, (8 + strength*22)*scale)).enhance(.75).convert("RGBA")
         tint = (255, 255, 255, round(18+strength*45)) if luminance(ImageStat.Stat(backdrop).mean) > .35 else (12, 18, 28, round(25+strength*65))
         glass = Image.alpha_composite(glass, Image.new("RGBA", glass.size, tint))
         mask = Image.new("L", glass.size)
@@ -167,7 +223,7 @@ def render(request, destination):
             ink = Image.new("RGBA", canvas.size, color)
         if kind == "clock" and request.get("fontGlass"):
             strength = max(0, min(1, request.get("fontGlassStrength", .55)))
-            frost = original_backdrop.filter(ImageFilter.GaussianBlur((3+strength*12)*scale))
+            frost = fast_blur(original_backdrop, (3+strength*12)*scale)
             frost = ImageEnhance.Color(frost).enhance(.65).convert("RGBA")
             # Keep the local wallpaper visible inside the letters, softened and
             # tinted by the same adaptive ink as the opaque gradient mode.
@@ -177,7 +233,7 @@ def render(request, destination):
             frost = Image.alpha_composite(frost, sheen.resize((width,height)))
             frost.putalpha(round(205+strength*35))
             shadow = ImageChops.offset(mask.filter(ImageFilter.GaussianBlur(3*scale)), scale, 2*scale)
-            shadow = shadow.point(lambda value: round(value*.22))
+            shadow = shadow.point(SHADOW_LUT)
             canvas = Image.alpha_composite(canvas, Image.composite(
                 Image.new("RGBA",canvas.size,(0,0,0,100)), Image.new("RGBA",canvas.size), shadow))
             canvas = Image.alpha_composite(canvas, Image.composite(frost, Image.new("RGBA",canvas.size), mask))
@@ -197,9 +253,8 @@ def render(request, destination):
                 canvas = Image.alpha_composite(canvas, Image.composite(
                     Image.new("RGBA",canvas.size,rim),Image.new("RGBA",canvas.size),edge))
             canvas = Image.composite(ink, canvas, mask)
-    destination = Path(destination)
     temporary = destination.with_suffix(".tmp")
-    canvas.save(temporary, format="PNG")
+    canvas.save(temporary, format="PNG", compress_level=1)
     temporary.replace(destination)
     return {"width": width/scale, "height": height/scale, "stops": stops}
 
