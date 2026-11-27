@@ -15,7 +15,7 @@ every running browser at once (Chromium, Firefox, Brave, Zen, and others).
 
 ## Requirements
 
-Install [tabctl](https://github.com/slastra/tabctl) and its mediator
+Install [`tabctl`](https://github.com/slastra/tabctl) and its mediator
 (`tabctl-mediator`), and the tabctl browser extension in each browser you want
 to search. After installing, run `tabctl install` once to register the native
 messaging manifests, then confirm each browser is connected with

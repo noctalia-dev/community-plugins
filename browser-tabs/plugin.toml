@@ -16,9 +16,9 @@ plugin_api = 3
 author = "fennstef"
 license = "MIT"
 dependencies = ["tabctl"]
-tags = ["browser", "tabs", "launcher", "search"]
+tags = ["launcher", "productivity", "desktop"]
 icon = "globe"
-description = "Search and jump to open browser tabs across all browsers."
+description = "Search and jump to open browser tabs across all browsers, via tabctl."
 
 [[launcher_provider]]
 id = "browser-tabs"
