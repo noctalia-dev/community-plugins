@@ -580,7 +580,6 @@ refreshAll = function()
     snapshot.loading = true
     publishSnapshot()
   end
-  noctalia.setUpdateInterval(1000)
 
   local pending = 3
   local bag = { status = nil, prefs = nil, exits = "" }
@@ -854,6 +853,11 @@ noctalia.setUpdateInterval(refreshIntervalMs())
 refreshAll()
 
 function update()
+  -- A refresh is in flight: skip this tick unless it is stuck.
+  -- Queueing another one here kept slow refreshes back to back.
+  if refreshPending and (nowSec() - refreshStartedAt) < STUCK_SEC then
+    return
+  end
   refreshAll()
 end
 
