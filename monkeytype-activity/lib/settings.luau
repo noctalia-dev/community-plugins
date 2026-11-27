@@ -42,8 +42,8 @@ function Settings.hasApeKey(value)
   return #Settings.apeKey(value) > 0
 end
 
--- Optional display name, used only for the profile button and the panel
--- caption; the Ape Key is what identifies the account.
+-- Optional display name, used only for the profile button; the Ape Key is
+-- what identifies the account.
 function Settings.username(value)
   local name = Settings.apeKey(value)
   if name == "" then

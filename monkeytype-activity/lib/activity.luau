@@ -100,11 +100,45 @@ function Activity.utcDate(timestamp)
   return os.date("!%Y-%m-%d", timestamp)
 end
 
--- Parse an ISO calendar date as local noon. Noon avoids DST boundary changes,
--- while the round trip rejects values that os.time would otherwise normalize.
--- Only used to format labels. `os.time(table)` is UTC in Luau and `os.date`
--- without "!" is local, so the round trip is verified in UTC to stay correct at
--- any offset, including the +12…+14 zones where local noon is the next day.
+-- Days since 1970-01-01 for a proleptic Gregorian date, and its inverse
+-- (Howard Hinnant's civil-from-days). Pure integer arithmetic: the result does
+-- not depend on the host time zone, and converting a date back is how an
+-- impossible one (2025-02-30) is rejected without going through os.time.
+local function daysFromCivil(year, month, day)
+  local y = month <= 2 and year - 1 or year
+  local era = math.floor(y / 400)
+  local yoe = y - era * 400
+  local mp = (month + 9) % 12
+  local doy = math.floor((153 * mp + 2) / 5) + day - 1
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
+end
+
+local function civilFromDays(days)
+  local z = days + 719468
+  local era = math.floor(z / 146097)
+  local doe = z - era * 146097
+  local yoe = math.floor((doe - math.floor(doe / 1460) + math.floor(doe / 36524) - math.floor(doe / 146096)) / 365)
+  local doy = doe - (365 * yoe + math.floor(yoe / 4) - math.floor(yoe / 100))
+  local mp = math.floor((5 * doy + 2) / 153)
+  local day = doy - math.floor((153 * mp + 2) / 5) + 1
+  local month = mp < 10 and mp + 3 or mp - 9
+  local year = (month <= 2) and (yoe + era * 400 + 1) or (yoe + era * 400)
+  return year, month, day
+end
+
+local function utcTimestamp(year, month, day, hour)
+  local days = daysFromCivil(year, month, day)
+  local backYear, backMonth, backDay = civilFromDays(days)
+  if backYear ~= year or backMonth ~= month or backDay ~= day then
+    return nil
+  end
+  return days * SECONDS_PER_DAY + hour * 3600
+end
+
+-- Parse an ISO calendar date as UTC noon. Noon keeps the value away from DST
+-- edges and makes the day bucket obvious; the round trip rejects impossible
+-- dates (2025-02-30) without os.time normalising them.
 function Activity.dateTimestamp(value)
   if type(value) ~= "string" then
     return nil
@@ -115,18 +149,7 @@ function Activity.dateTimestamp(value)
     return nil
   end
 
-  local timestamp = os.time({
-    year = tonumber(year),
-    month = tonumber(month),
-    day = tonumber(day),
-    hour = 12,
-  })
-
-  if type(timestamp) ~= "number" or os.date("!%Y-%m-%d", timestamp) ~= value then
-    return nil
-  end
-
-  return timestamp
+  return utcTimestamp(tonumber(year), tonumber(month), tonumber(day), 12)
 end
 
 -- Quartile thresholds over the days that have tests, so the four shaded levels
@@ -288,14 +311,15 @@ end
 -- as available when at least one day in that calendar year falls inside the
 -- window, so the selector only offers views the data can actually render.
 function Activity.availableYears(counts, lastTimestamp)
-  if type(counts) ~= "table" or #counts == 0 or Activity.toSeconds(lastTimestamp) == nil then
+  local anchor = Activity.toSeconds(lastTimestamp)
+  if type(counts) ~= "table" or #counts == 0 or anchor == nil then
     return {}
   end
 
   local count = #counts
-  local firstTimestamp = lastTimestamp - (count - 1) * SECONDS_PER_DAY
+  local firstTimestamp = anchor - (count - 1) * SECONDS_PER_DAY
   local firstYear = tonumber(os.date("!%Y", firstTimestamp))
-  local lastYear = tonumber(os.date("!%Y", lastTimestamp))
+  local lastYear = tonumber(os.date("!%Y", anchor))
   local years = {}
   if firstYear == nil or lastYear == nil then
     return years
@@ -310,7 +334,8 @@ end
 -- available data window are marked unavailable so the panel can distinguish
 -- them from days with zero tests.
 function Activity.buildYear(counts, lastTimestamp, yearStr)
-  if type(counts) ~= "table" or #counts == 0 or Activity.toSeconds(lastTimestamp) == nil then
+  local anchor = Activity.toSeconds(lastTimestamp)
+  if type(counts) ~= "table" or #counts == 0 or anchor == nil then
     return nil
   end
 
@@ -320,9 +345,9 @@ function Activity.buildYear(counts, lastTimestamp, yearStr)
   end
 
   local count = #counts
-  local firstData = lastTimestamp - (count - 1) * SECONDS_PER_DAY
-  local jan1 = os.time({ year = y, month = 1, day = 1, hour = 12 })
-  local dec31 = os.time({ year = y, month = 12, day = 31, hour = 12 })
+  local firstData = anchor - (count - 1) * SECONDS_PER_DAY
+  local jan1 = utcTimestamp(y, 1, 1, 12)
+  local dec31 = utcTimestamp(y, 12, 31, 12)
   if jan1 == nil or dec31 == nil then
     return nil
   end
@@ -335,7 +360,7 @@ function Activity.buildYear(counts, lastTimestamp, yearStr)
   local activeDays = 0
   for i = 1, daysInYear do
     local ts = jan1 + (i - 1) * SECONDS_PER_DAY
-    if ts >= firstData and ts <= lastTimestamp then
+    if ts >= firstData and ts <= anchor then
       local index = math.floor((ts - firstData) / SECONDS_PER_DAY) + 1
       local c = counts[index]
       if type(c) ~= "number" or c < 0 then
@@ -356,6 +381,9 @@ function Activity.buildYear(counts, lastTimestamp, yearStr)
   built.windowTotal = yearTotal
   built.activeDays = activeDays
   built.view = "year"
+  -- The selector works with IDs, never with the view type: "year" alone
+  -- cannot be fed back into buildView on the next data update.
+  built.viewId = yearStr
   built.year = yearStr
   return built
 end
@@ -381,13 +409,26 @@ function Activity.buildView(data, view)
       coveredLastDate = data.lastDate,
       activeDays = data.activeDays,
       view = "rolling",
+      viewId = "rolling",
     }
   end
 
   if type(data.counts) == "table" and data.lastTimestamp ~= nil then
-    local yearBuilt = Activity.buildYear(data.counts, data.lastTimestamp, view)
-    if yearBuilt ~= nil then
-      return yearBuilt
+    -- Only years the window actually covers are offered by the selector; a
+    -- selection left behind by an older window falls back to rolling instead
+    -- of rendering a calendar with no available day.
+    local offered = false
+    for _, year in ipairs(Activity.availableYears(data.counts, data.lastTimestamp)) do
+      if year == view then
+        offered = true
+        break
+      end
+    end
+    if offered then
+      local yearBuilt = Activity.buildYear(data.counts, data.lastTimestamp, view)
+      if yearBuilt ~= nil then
+        return yearBuilt
+      end
     end
   end
 
@@ -403,6 +444,7 @@ function Activity.buildView(data, view)
     coveredLastDate = data.lastDate,
     activeDays = data.activeDays,
     view = "rolling",
+    viewId = "rolling",
   }
 end
 
@@ -424,9 +466,14 @@ end
 -- Position of the current UTC day inside the window, or nil when the window
 -- does not reach it (a stale cache keeps its own last day).
 function Activity.todayIndex(counts, lastTimestamp, now)
+  local anchor = Activity.toSeconds(lastTimestamp)
+  if type(counts) ~= "table" or anchor == nil then
+    return nil
+  end
+
   local stamp = now or os.time()
   local todayTimestamp = stamp - stamp % SECONDS_PER_DAY
-  local offset = (todayTimestamp - lastTimestamp) / SECONDS_PER_DAY
+  local offset = (todayTimestamp - anchor) / SECONDS_PER_DAY
   local index = #counts + offset
   if index < 1 or index > #counts then
     return nil
@@ -644,7 +691,10 @@ function Activity.isValidCache(data)
     end
   end
 
-  return type(data.today) == "number"
+  return type(data.counts) == "table"
+    and #data.counts > 0
+    and type(data.lastTimestamp) == "number"
+    and type(data.today) == "number"
     and type(data.todayDate) == "string"
     and type(data.windowTotal) == "number"
     and type(data.currentStreak) == "number"

@@ -32,6 +32,32 @@ function Monkeytype.isValidKey(key)
   return type(key) == "string" and key ~= "" and string.match(key, KEY_PATTERN) ~= nil
 end
 
+-- One-way fingerprint of an Ape Key. The cache and the published payload are
+-- bound to the credential without ever storing it: two Rabin-Karp style
+-- hashes mod 2^31-1 give 62 bits, which is enough to tell accounts apart and
+-- leaves nothing to reverse. Products stay below 2^53, so doubles are exact.
+local HASH_MOD = 2147483647
+
+local function hashText(text, multiplier, seed)
+  local value = seed
+  for index = 1, #text do
+    value = (value * multiplier + string.byte(text, index)) % HASH_MOD
+  end
+  return value
+end
+
+function Monkeytype.fingerprint(key)
+  if type(key) ~= "string" or key == "" then
+    return ""
+  end
+  local salted = "monkeytype-activity:" .. key
+  return string.format(
+    "fp:%08x%08x",
+    hashText(salted, 131, 7),
+    hashText(salted, 65599, 104729)
+  )
+end
+
 function Monkeytype.request(path, key)
   return {
     url = Monkeytype.BASE_URL .. path,

@@ -10,7 +10,6 @@
   "metric": {
     "best_streak": "Mejor racha",
     "current_streak": "Racha actual",
-    "last_year": "Último año",
     "today": "Hoy"
   },
   "panel": {
@@ -29,8 +28,6 @@
     },
     "preparing": "Preparando el calendario interactivo…",
     "title": "Actividad de MonkeyType",
-    "window_total": "{count} tests en el último año",
-    "window_total_named": "{username} · {count} tests en el último año",
     "less": "Menos",
     "more": "Más",
     "last_12_months": "últimos 12 meses",

@@ -10,7 +10,6 @@
   "metric": {
     "best_streak": "Best streak",
     "current_streak": "Current streak",
-    "last_year": "Last year",
     "today": "Today"
   },
   "panel": {
@@ -29,8 +28,6 @@
     },
     "preparing": "Preparing interactive calendar…",
     "title": "MonkeyType Activity",
-    "window_total": "{count} tests in the last year",
-    "window_total_named": "{username} · {count} tests in the last year",
     "less": "Less",
     "more": "More",
     "last_12_months": "last 12 months",

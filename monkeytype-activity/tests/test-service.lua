@@ -39,6 +39,7 @@ local function pluginRequire(path)
 end
 
 local Activity = pluginRequire("lib/activity.luau")
+local Monkeytype = pluginRequire("lib/monkeytype.luau")
 
 local FAILED = 0
 local PASSED = 0
@@ -54,6 +55,20 @@ end
 
 local function section(name)
   print("\n== " .. name)
+end
+
+local function containsValue(value, needle)
+  if type(value) == "string" then
+    return string.find(value, needle, 1, true) ~= nil
+  end
+  if type(value) == "table" then
+    for _, item in pairs(value) do
+      if containsValue(item, needle) then
+        return true
+      end
+    end
+  end
+  return false
 end
 
 local function deepCopy(value)
@@ -133,6 +148,11 @@ local function newMock()
 
   noctalia.writeFile = function(path, contents)
     mock.files[path] = contents
+    return true
+  end
+
+  noctalia.removeFile = function(path)
+    mock.files[path] = nil
     return true
   end
 
@@ -340,6 +360,111 @@ do
   check("no errors logged", 0, #mock.logs)
 end
 
+section("the Ape Key never reaches the cache or the published state")
+do
+  local mock = coldMock()
+  loadService(mock)
+  local raw = mock.files[mock.dataDir .. "/activity.json"]
+  check("cache exists", "string", type(raw))
+  local encoded = mock.encoded[tonumber(string.match(raw, "^@cache:(%d+)$"))]
+  check("cache stores a fingerprint", Monkeytype.fingerprint("APEKEY"), encoded.accountKey)
+  check("cache holds no raw key", false, containsValue(encoded, "APEKEY"))
+  check("state holds no raw key", false, containsValue(mock.state.data, "APEKEY"))
+end
+
+section("a legacy cache holding the raw Ape Key is scrubbed")
+do
+  local mock = coldMock()
+  loadService(mock)
+  local path = mock.dataDir .. "/activity.json"
+
+  local legacy = deepCopy(mock.state.data)
+  legacy.accountKey = "APEKEY"
+  mock.files[path] = mock.noctalia.json.encode(legacy)
+
+  local reopened = newMock()
+  reopened.files = mock.files
+  reopened.encoded = mock.encoded
+  reopened.encodedCount = mock.encodedCount
+  reopened.dataDir = mock.dataDir
+  loadService(reopened)
+
+  local rewritten = reopened.encoded[tonumber(string.match(reopened.files[path], "^@cache:(%d+)$"))]
+  check("legacy cache rewritten with a fingerprint", Monkeytype.fingerprint("APEKEY"), rewritten.accountKey)
+  check("no raw key left in the cache", false, containsValue(rewritten, "APEKEY"))
+end
+
+section("a legacy cache is dropped when no key is configured")
+do
+  local mock = coldMock()
+  loadService(mock)
+  local path = mock.dataDir .. "/activity.json"
+
+  local legacy = deepCopy(mock.state.data)
+  legacy.accountKey = "APEKEY"
+  mock.files[path] = mock.noctalia.json.encode(legacy)
+
+  local reopened = newMock()
+  reopened.files = mock.files
+  reopened.encoded = mock.encoded
+  reopened.encodedCount = mock.encodedCount
+  reopened.dataDir = mock.dataDir
+  reopened.config.ape_key = ""
+  loadService(reopened)
+  check("plaintext legacy cache removed without a key", nil, reopened.files[path])
+  check("no key status", "no_key", reopened.state.status)
+end
+
+section("an unusable cache is removed instead of reused")
+do
+  local mock = coldMock()
+  loadService(mock)
+  local path = mock.dataDir .. "/activity.json"
+  check("cache written", "string", type(mock.files[path]))
+
+  -- A truncated legacy cache: still a plaintext key inside, but no longer
+  -- usable. It must be deleted, not left for the next load.
+  local partial = deepCopy(mock.state.data)
+  partial.counts = nil
+  partial.accountKey = "APEKEY"
+  mock.files[path] = mock.noctalia.json.encode(partial)
+
+  local reopened = newMock()
+  reopened.dataDir = mock.dataDir
+  reopened.files = mock.files
+  reopened.encoded = mock.encoded
+  reopened.encodedCount = mock.encodedCount
+  loadService(reopened)
+  check("incomplete cache deleted", nil, reopened.files[path])
+  check("incomplete cache not published", nil, reopened.state.data)
+
+  mock.files[path] = '{"accountKey":"APEKEY"'
+  local broken = newMock()
+  broken.dataDir = mock.dataDir
+  broken.files = mock.files
+  loadService(broken)
+  check("undecodable cache deleted", nil, broken.files[path])
+end
+
+section("a cache bound to another key is dropped")
+do
+  local mock = coldMock()
+  loadService(mock)
+  local path = mock.dataDir .. "/activity.json"
+
+  local foreign = deepCopy(mock.state.data)
+  foreign.accountKey = Monkeytype.fingerprint("OTHERKEY")
+  mock.files[path] = mock.noctalia.json.encode(foreign)
+
+  local reopened = newMock()
+  reopened.files = mock.files
+  reopened.encoded = mock.encoded
+  reopened.encodedCount = mock.encodedCount
+  reopened.dataDir = mock.dataDir
+  loadService(reopened)
+  check("file removed", nil, reopened.files[path])
+end
+
 section("a quiet tick only asks for the streak")
 do
   local mock = coldMockInstance
@@ -410,11 +535,49 @@ do
   local before = #mock.requests
   service.update()
   check("tick inside the backoff window is skipped", before, #mock.requests)
+  service.onIpc("refresh")
+  check("manual refresh also waits the rate limit", before, #mock.requests)
   mock.clock = mock.clock + 61 * 60 * 1000
   route(mock, "/users/streak", { lastResultTimestamp = NOW - 600, length = 3, maxLength = 7 })
   service.update()
   check("tick after the backoff window retries", true, #mock.requests > before)
   check("status recovers", "ready", mock.state.status)
+end
+
+section("a manual refresh still bypasses a generic backoff")
+do
+  local mock = coldMock()
+  routeFailure(mock, "/users/streak", 500)
+  local service = loadService(mock)
+  check("first attempt failed", true, mock.state.status ~= "ready")
+  local before = #mock.requests
+  mock.clock = mock.clock + 60 * 1000
+  route(mock, "/users/streak", { lastResultTimestamp = NOW - 600, length = 3, maxLength = 7 })
+  service.manualRefresh()
+  check("manual refresh retries during the backoff", before + 3, #mock.requests)
+  check("manual refresh recovers", "ready", mock.state.status)
+end
+
+section("editing the key keeps an active rate limit")
+do
+  local mock = coldMock()
+  routeFailure(mock, "/users/streak", 429)
+  local service = loadService(mock)
+  check("status", "rate_limited", mock.state.status)
+  local before = #mock.requests
+
+  mock.config.ape_key = ""
+  service.onConfigChanged()
+  mock.clock = mock.clock + 60 * 1000
+  mock.config.ape_key = "APEKEY"
+  service.onConfigChanged()
+  check("retyping the same key still waits", before, #mock.requests)
+
+  route(mock, "/users/streak", { lastResultTimestamp = NOW - 600, length = 3, maxLength = 7 })
+  mock.config.ape_key = "OTHERKEY"
+  service.onConfigChanged()
+  check("another key fetches immediately", before + 3, #mock.requests)
+  check("another key is ready", "ready", mock.state.status)
 end
 
 section("cached data is served before the first request finishes")
@@ -453,6 +616,30 @@ do
   route(mock, "/users/currentTestActivity", { days = "nope", lastDay = "later" })
   loadService(mock)
   check("status", "invalid_response", mock.state.status)
+end
+
+section("a failing last result still publishes the calendar")
+do
+  local mock = coldMock()
+  routeFailure(mock, "/results/last", 503)
+  loadService(mock)
+  check("status", "ready", mock.state.status)
+  check("calendar published", "table", type(mock.state.data))
+  check("streak still published", 3, mock.state.data.currentStreak)
+  check("last wpm unavailable", nil, mock.state.data.lastWpm)
+end
+
+section("a rate limit on the optional last result keeps the calendar")
+do
+  local mock = coldMock()
+  routeFailure(mock, "/results/last", 429)
+  local service = loadService(mock)
+  check("status", "ready", mock.state.status)
+  check("calendar published", "table", type(mock.state.data))
+  local before = #mock.requests
+  mock.clock = mock.clock + 60 * 1000
+  service.manualRefresh()
+  check("manual refresh waits the optional rate limit", before, #mock.requests)
 end
 
 section("a different key forces a refetch")
@@ -532,7 +719,34 @@ do
   check("data belongs to new account", 1, data.today)
   check("new account last wpm", 99, data.lastWpm)
   check("new account streak", 2, data.currentStreak)
-  check("new account key stored in cache", "ANOTHERKEY", data.accountKey)
+  check("cache binds to a fingerprint", Monkeytype.fingerprint("ANOTHERKEY"), data.accountKey)
+  check("cache holds no raw key", false, containsValue(data, "ANOTHERKEY"))
+end
+
+section("a missing data directory never blocks a refresh")
+do
+  local mock = coldMock()
+  mock.dataDir = nil
+  loadService(mock)
+  check("status without a data dir", "ready", mock.state.status)
+  check("data still published", true, mock.state.data ~= nil)
+end
+
+section("an unscannable activity body falls back to the decoded window")
+do
+  local mock = coldMock()
+  mock.bodies["unscannable"] = {
+    message = "ok",
+    data = { testsByDays = { 1, 0, 2 }, lastDay = TODAY },
+  }
+  mock.responses["/users/currentTestActivity"] = {
+    ok = true,
+    status = 200,
+    body = "unscannable",
+  }
+  loadService(mock)
+  check("status with an unscannable body", "ready", mock.state.status)
+  check("window total from the decoded table", 3, mock.state.data and mock.state.data.windowTotal)
 end
 
 print(string.format("\n%d passed, %d failed", PASSED, FAILED))

@@ -185,6 +185,18 @@ check("missing activity reason", "missing test activity", brokenError)
 check("empty activity fails", nil, (Activity.normalize({ days = {}, dayCount = 0, lastDay = TODAY })))
 check("invalid cache rejected", false, Activity.isValidCache({ rows = {} }))
 check("invalid cache rejected (nil)", false, Activity.isValidCache(nil))
+local partialCache = {}
+for key, value in pairs(payload) do
+  partialCache[key] = value
+end
+partialCache.counts = nil
+check("cache without the raw series rejected", false, Activity.isValidCache(partialCache))
+local noAnchorCache = {}
+for key, value in pairs(payload) do
+  noAnchorCache[key] = value
+end
+noAnchorCache.lastTimestamp = nil
+check("cache without the anchor rejected", false, Activity.isValidCache(noAnchorCache))
 
 section("monkeytype: requests and status mapping")
 local request = Monkeytype.request("/users/streak", "SECRET")
@@ -276,7 +288,7 @@ check("username unset", nil, Settings.username(""))
 section("activity: availableYears")
 local yearCounts = {}
 for i = 1, 372 do yearCounts[i] = 0 end
-local yearsDec2026 = Activity.availableYears(yearCounts, os.time({year=2026, month=12, day=15, hour=12}))
+local yearsDec2026 = Activity.availableYears(yearCounts, Activity.dateTimestamp("2026-12-15"))
 check("years include 2026", true, yearsDec2026[1] == "2026" or yearsDec2026[2] == "2026")
 check("years is a table", "table", type(yearsDec2026))
 check("years empty for nil", 0, #Activity.availableYears(nil, TODAY))
@@ -286,7 +298,7 @@ check("years empty for empty counts", 0, #Activity.availableYears({}, TODAY))
 section("activity: buildYear")
 local y2026Counts = {}
 for k = 1, 372 do y2026Counts[k] = (k == 200) and 5 or 0 end
-local anchor2026 = os.time({year=2026, month=6, day=15, hour=12})
+local anchor2026 = Activity.dateTimestamp("2026-06-15")
 anchor2026 = anchor2026 - anchor2026 % 86400
 
 local built2026 = Activity.buildYear(y2026Counts, anchor2026, "2026")
@@ -296,6 +308,7 @@ check("buildYear has rows", "table", type(built2026.rows))
 check("buildYear has 7 rows", 7, #built2026.rows)
 check("buildYear has columns", "number", type(built2026.columns))
 check("buildYear view is year", "year", built2026.view)
+check("buildYear view id is the year", "2026", built2026.viewId)
 check("2026 year windowTotal only counts available days", 0, built2026.windowTotal)
 check("2026 year activeDays", 0, built2026.activeDays)
 check("2026 covered start", "2026-01-01", built2026.coveredFirstDate)
@@ -353,8 +366,17 @@ check("availableYears has 2 years", 2, #years)
 check("first year is 2026", "2026", years[1])
 check("second year is 2025", "2025", years[2])
 check("empty counts returns empty", 0, #Activity.availableYears({}, anchor2026))
-local shortYears = Activity.availableYears({1, 2, 3}, os.time({year=1990, month=1, day=1, hour=12}))
+local shortYears = Activity.availableYears({1, 2, 3}, Activity.dateTimestamp("1990-01-01"))
 check("short window spanning year boundary returns 2 years", 2, #shortYears)
+
+local june = Activity.dateTimestamp("2026-06-15")
+check("dateTimestamp returns a timestamp", "number", type(june))
+check("dateTimestamp round trips in UTC", "2026-06-15", Activity.utcDate(june))
+local msYears = Activity.availableYears(y2026Counts, anchor2026 * 1000)
+check("millisecond anchor gives the same years", 2, #msYears)
+check("millisecond anchor first year", "2026", msYears[1])
+local msYear = Activity.buildYear(y2026Counts, anchor2026 * 1000, "2026")
+check("millisecond anchor builds the year", "2026-01-01", msYear and msYear.coveredFirstDate)
 
 section("activity: buildView")
 local viewData = {
@@ -371,19 +393,28 @@ local viewData = {
 }
 local rollingView = Activity.buildView(viewData, "rolling")
 check("rolling view type", "rolling", rollingView.view)
+check("rolling view id", "rolling", rollingView.viewId)
 check("rolling view windowTotal", 5, rollingView.windowTotal)
 local defaultView = Activity.buildView(viewData, nil)
 check("default view is rolling", "rolling", defaultView.view)
 check("nil data returns nil", nil, Activity.buildView(nil, "rolling"))
 local yearView = Activity.buildView(viewData, "2026")
 check("year view type is year", "year", yearView.view)
+check("year view id keeps the year", "2026", yearView.viewId)
+local again = Activity.buildView(viewData, yearView.viewId)
+check("feeding the id back keeps the year", "2026", again.viewId)
+check("feeding the id back stays a year view", "year", again.view)
 check("year view year field", "2026", yearView.year)
 check("year view windowTotal", 0, yearView.windowTotal)
 check("year view covered range shown", "2026-01-01", yearView.coveredFirstDate)
 local fallbackData = {rows={"."}, details={""}, columns=1, thresholds={1,1,1}, windowTotal=99, firstDate="x", lastDate="y", activeDays=7}
 local fallbackView = Activity.buildView(fallbackData, "2026")
 check("fallback view is rolling without counts", "rolling", fallbackView.view)
+check("fallback view id is rolling", "rolling", fallbackView.viewId)
 check("fallback preserves windowTotal", 99, fallbackView.windowTotal)
+local outsideView = Activity.buildView(viewData, "1999")
+check("year outside the window falls back", "rolling", outsideView.viewId)
+check("outside fallback preserves windowTotal", 5, outsideView.windowTotal)
 
 section("activity: normalize preserves account key and raw series")
 local withAccount = Activity.normalize({

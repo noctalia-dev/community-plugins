@@ -15,7 +15,6 @@ local keyToPos = {}
 
 local cachedHeatmap = nil
 local cachedCalendar = nil
-local cachedViewKey = nil
 local gridColumns = {}
 local gridLevels = {}
 local gridDetails = {}
@@ -74,7 +73,6 @@ end
 local function resetGrid()
   cachedHeatmap = nil
   cachedCalendar = nil
-  cachedViewKey = nil
   gridColumns = {}
   gridLevels = {}
   gridDetails = {}
@@ -92,9 +90,11 @@ local function resolveView()
     return
   end
   activeViewData = Activity.buildView(data, selectedView)
-  if activeViewData ~= nil and activeViewData.view ~= nil then
-    -- If a year view could not be built (old cache), fall back gracefully.
-    selectedView = activeViewData.view
+  if activeViewData ~= nil and activeViewData.viewId ~= nil then
+    -- Keep the selected ID ("rolling" or the year), not the view type: a
+    -- generic "year" would match no button and reset the calendar on the
+    -- next data update. An unavailable year falls back to rolling here.
+    selectedView = activeViewData.viewId
   end
 end
 
@@ -279,7 +279,6 @@ local function assembleCalendar()
       buildLegend(),
     }),
   })
-  cachedViewKey = selectedView
 end
 
 local function buildGridImmediate()
@@ -701,12 +700,15 @@ function onViewClicked(view)
   end
   selectedView = view
   hoveredKey = nil
+  resolveView()
+  resetGrid()
   if open and data ~= nil then
-    buildGridImmediate()
+    -- Building all 53 columns at once blows past the panel's per-callback CPU
+    -- budget, so let the frame tick fill the grid a couple of weeks at a time
+    -- exactly like the first open does.
+    panel.setWantsSecondTicks(true)
+    panel.setNeedsFrameTick(true)
     render()
-  else
-    resolveView()
-    resetGrid()
   end
 end
 
