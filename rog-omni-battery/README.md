@@ -38,7 +38,7 @@ noctalia msg plugin suhoiyis/rog-omni-battery:bar all refresh
 
 ## Notes
 
-- Tested on Noctalia 5.4.1 with a ROG Keris Wireless Aimpoint mouse and a ROG Azoth keyboard paired to the same Omni Receiver. The helper recognizes additional model IDs, but those models have not been tested in this plugin.
+- Tested on Noctalia 5.4.1 with two devices paired to the same Omni Receiver: a ROG Keris Wireless Aimpoint mouse and a ROG Azoth keyboard. The helper recognizes additional models. Test reports for those models are welcome.
 - The service invokes `python3 -I <plugin directory>/rog-omni-status.py` once a minute and on manual refresh. A single service polls for all monitors.
 - The helper reads local sysfs metadata and opens only the receiver's vendor HID interface. It sends three types of HID queries to request pairing information and mouse/keyboard battery status. It does not modify pairing, firmware or device settings.
 - The latest valid percentage for the same paired device is kept in memory for up to 15 minutes when a device stops replying. The tooltip labels a cached value as a last reading. Receiver errors and changes clear cached values.
