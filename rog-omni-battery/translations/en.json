@@ -15,7 +15,7 @@
     "disconnected": "ROG Omni Receiver not found.",
     "multiple_receivers": "Connect one ROG Omni Receiver at a time.",
     "pairing_unavailable": "No pairing response. Wake the devices and refresh.",
-    "permission": "Permission denied. Install the udev rule and reconnect the receiver.",
+    "permission": "Permission denied. See Receiver permissions in the plugin README.",
     "python_missing": "Install python3 and refresh.",
     "read_failed": "Could not read the receiver. Reconnect it and refresh."
   }

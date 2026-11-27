@@ -11,22 +11,30 @@ Show separate mouse and keyboard battery levels for devices paired to one ASUS R
 
 ## Requirements
 
+- [Noctalia plugin API 43](https://docs.noctalia.dev/noctalia/plugins/development/plugin-api/), available in Noctalia 5.4.1 or later.
 - `python3` (3.8 or newer) on PATH. The bundled helper uses only the standard library.
 - Linux with hidraw and one ASUS ROG Omni Receiver (`0b05:1ace`).
-- Read/write access to the receiver's vendor HID interface. On a systemd-based desktop, install the bundled udev rule once if the widget reports permission denied.
+- Read/write access to the receiver's vendor HID interface. See [Receiver permissions](#receiver-permissions) if the widget reports permission denied.
 
 ## Usage
 
-Enable the plugin and add the ROG Omni Battery widget from **Settings → Bar**. Hover the mouse or keyboard icon or percentage for that device's name and charge status. Left-click or right-click the widget to refresh both readings. You can change either shortcut under the widget's **Actions** settings.
+1. Open **Settings → Plugins**, find **ROG Omni Battery**, and enable it.
+2. Open **Settings → Bar → Bar Widgets**, choose **Add Widget**, and select **ROG Omni Battery**.
 
-For the optional udev setup, obtain `70-rog-omni-status.rules` from this plugin directory and run the following commands from the directory containing the rule. Reconnect the receiver and wake both devices after reloading the rules.
+Hover either icon or percentage for the device name and charge status. A charging device uses the theme's secondary color. **Last reading** in the tooltip means the displayed percentage is cached. Left-click or right-click to refresh both readings. You can change either binding under the widget's **Actions** settings.
+
+### Receiver permissions
+
+If the widget reports **Permission denied** on a systemd-based desktop, open the [udev rule on GitHub](https://github.com/noctalia-dev/community-plugins/blob/main/rog-omni-battery/70-rog-omni-status.rules) and choose **Download raw file**. The same file, `70-rog-omni-status.rules`, is included in the plugin directory and source archive.
+
+Run these one-time setup commands from the directory containing the rule:
 
 ```sh
 sudo install -m 0644 70-rog-omni-status.rules /etc/udev/rules.d/70-rog-omni-status.rules
 sudo udevadm control --reload-rules
 ```
 
-The rule gives the active local desktop session access to the vendor interface (`02`) of USB device `0b05:1ace`. The plugin runs as the desktop user. To undo this setup, remove the installed rule, reload the rules and reconnect the receiver.
+Reconnect the receiver, wake both devices, then click the widget to refresh. The rule gives the active local desktop session access to the vendor interface (`02`) of USB device `0b05:1ace`. The plugin runs as the desktop user without `sudo`. To undo the setup, remove the installed rule, reload the rules, and reconnect the receiver.
 
 ## IPC
 
