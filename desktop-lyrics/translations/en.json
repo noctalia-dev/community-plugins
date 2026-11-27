@@ -1,0 +1,130 @@
+{
+  "settings": {
+    "enabled": {
+      "label": "Enable lyrics",
+      "description": "Show synced lyrics on the desktop and in the bar while music plays."
+    },
+    "font_size": {
+      "label": "Lyric size",
+      "description": "Font size of the active lyric line on the desktop, in pixels."
+    },
+    "max_lines": {
+      "label": "Context lines",
+      "description": "How many lyric lines the overlay may show at once, including the active one."
+    },
+    "display_mode": {
+      "label": "Display mode",
+      "description": "Karaoke fills the active line as it is sung, Line keeps surrounding lines, Focus shows only one line.",
+      "karaoke": "Karaoke fill",
+      "line": "Line with context",
+      "focus": "Single focus"
+    },
+    "text_align": {
+      "label": "Text alignment",
+      "description": "Alignment of the lyric block inside the desktop widget.",
+      "center": "Center",
+      "start": "Left",
+      "end": "Right"
+    },
+    "show_next_line": {
+      "label": "Show next line",
+      "description": "Dimly preview the upcoming lyric line below the active one."
+    },
+    "hide_on_pause": {
+      "label": "Hide on pause",
+      "description": "Fade the lyrics out 1.5 s after playback pauses and bring them back the moment it resumes."
+    },
+    "show_title": {
+      "label": "Show track title",
+      "description": "Print the track title and artist above the lyrics."
+    },
+    "show_progress": {
+      "label": "Show progress",
+      "description": "Draw a thin playback progress bar and use the karaoke fill for the active line."
+    },
+    "sync_offset": {
+      "label": "Sync offset",
+      "description": "Shift lyric timing in milliseconds; negative values show lines earlier."
+    },
+    "filter_mode": {
+      "label": "Source filter",
+      "description": "Choose which media sources may show lyrics.",
+      "allow_all": "All sources",
+      "whitelist": "Known media sites only"
+    },
+    "custom_domains": {
+      "label": "Extra allowed domains",
+      "description": "Additional domains treated as valid media sources in whitelist mode."
+    },
+    "disabled_domains": {
+      "label": "Blocked domains",
+      "description": "Hosts or subdomains that must never trigger lyrics, in either filter mode; ports are ignored."
+    },
+    "disabled_players": {
+      "label": "Ignored players",
+      "description": "MPRIS player identities or bus-name fragments to ignore."
+    },
+    "local_lyrics": {
+      "label": "Local lyric files",
+      "description": "Use a .lrc or .elrc file next to the playing audio file before asking LRCLIB; word timestamps in it drive the karaoke fill."
+    },
+    "cache_enabled": {
+      "label": "Cache lyrics",
+      "description": "Store LRCLIB responses in the plugin data directory so repeats work offline."
+    },
+    "overlay_enabled": {
+      "label": "Desktop overlay",
+      "description": "Draw the lyrics on a full-screen overlay instead of a placed desktop widget, and move the block between the calm areas of the wallpaper."
+    },
+    "overlay_font_size": {
+      "label": "Overlay font size",
+      "description": "Font size of the overlay's active line, in pixels."
+    },
+    "overlay_margin": {
+      "label": "Overlay margin",
+      "description": "Free space between the overlay text and the screen edge, in pixels."
+    },
+    "wallpaper_aware": {
+      "label": "Wallpaper-aware placement",
+      "description": "Sample the wallpaper once per change and keep the overlay in its calm, empty areas instead of over the subject. Needs ImageMagick or ffmpeg."
+    },
+    "wallpaper_order": {
+      "label": "Roaming order",
+      "description": "Order in which the calm wallpaper areas are visited.",
+      "tour": "Sequential tour",
+      "shuffle": "Shuffle"
+    }
+  },
+  "desktop": {
+    "loading": "Looking up lyrics…"
+  },
+  "bar": {
+    "tooltip": "Desktop Lyrics — click to open the lyrics panel"
+  },
+  "panel": {
+    "no_track": "Nothing playing",
+    "no_lyrics": "No lyrics for this track yet.",
+    "mode": "Mode",
+    "offset": "Offset",
+    "source": "Source",
+    "refresh": "Refresh",
+    "copy": "Copy line",
+    "settings": "Settings",
+    "copied": "Lyric copied",
+    "refreshing": "Refreshing lyrics…",
+    "state": {
+      "idle": "No player",
+      "off": "Lyrics are disabled",
+      "filtered": "Source hidden by the filters",
+      "loading": "Fetching from LRCLIB",
+      "notfound": "No lyrics found",
+      "instrumental": "Instrumental track",
+      "error": "LRCLIB request failed",
+      "plain": "Unsynced lyrics only",
+      "synced": "Synced lyrics"
+    }
+  },
+  "shortcut": {
+    "label": "Lyrics"
+  }
+}
