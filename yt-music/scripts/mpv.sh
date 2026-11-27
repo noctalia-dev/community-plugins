@@ -71,7 +71,11 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file $4=cover_file(optional)
   rm -f "$SOCK"
   # 9>&-: mpv must not inherit the lock fd, or the lock would outlive this
   # script (held open by the playing mpv) and deadlock the next play.
+  # --ytdl=no: URLs are already resolved by yt-dlp; mpv's ytdl_hook would
+  # otherwise run yt-dlp again on the googlevideo URL whenever an open fails.
+  # stream-retry.lua retries the open of a URL that is still too fresh (403).
   nohup mpv "$DUMMY" "$URL" "$DUMMY" --playlist-start=1 \
+    --ytdl=no --script="${BASH_SOURCE[0]%/*}/stream-retry.lua" \
     --no-video --vo=null --vd=null --audio-display=no --no-osc --no-osd-bar \
     --demuxer-max-bytes=20M --demuxer-readahead-secs=60 --really-quiet --no-terminal \
     --keep-open=always --pause=no \
