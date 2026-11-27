@@ -1,8 +1,6 @@
 --!nonstrict
--- First-run guidance. The installer command is only copied on explicit click.
+-- First-run guidance for installing and connecting Desktop.
 local palette = require("../palette.luau")
-local installCommand =
-  "curl -fsSL https://github.com/vladikchi/nectarlink-noctalia/releases/latest/download/install.sh | sh"
 local setupReasons = {
   credentials_missing = true,
   credentials_invalid = true,
@@ -67,32 +65,6 @@ function M.render(context, height, model, components, actions, settingsButton)
       maxLines = 2,
       height = 30,
     })
-    if key == "install" then
-      rows[#rows + 1] = ui.row({
-        key = "setup-install-command", width = innerWidth, height = 38, gap = 6, align = "center",
-      }, {
-        ui.label({
-          text = installCommand,
-          fontFamily = "monospace",
-          fontSize = 10,
-          maxWidth = innerWidth - 38,
-          maxLines = 2,
-        }),
-        ui.button({
-          key = "copy-install-command",
-          glyph = model.installCopyStatus == "copied" and "check" or "copy",
-          width = 32,
-          height = 32,
-          variant = "ghost",
-          tooltip = noctalia.tr("setup." .. (model.installCopyStatus or "copy")),
-          onClick = function()
-            local copied = noctalia.copyToClipboard(installCommand, "text/plain")
-            model.installCopyStatus = copied and "copied" or "copy_failed"
-            actions.render()
-          end,
-        }),
-      })
-    end
   end
   rows[#rows + 1] = ui.label({
     key = "setup-status", text = noctalia.tr("setup." .. reason), fontSize = 12,
@@ -111,10 +83,6 @@ function M.render(context, height, model, components, actions, settingsButton)
   end
   rows[#rows + 1] = ui.spacer({ flexGrow = 1 })
   rows[#rows + 1] = ui.row({ gap = 8, height = 36, align = "center" }, buttons)
-  rows[#rows + 1] = ui.label({
-    text = noctalia.tr("setup.source_note"), fontSize = 10, color = "on_surface_variant",
-    maxWidth = innerWidth, maxLines = 2, height = 30,
-  })
   return ui.column({
     key = "connection-setup", width = width, height = height, padding = 16, gap = 6,
     radius = 14, fill = palette("card"),

@@ -181,7 +181,7 @@ noctalia.runAsync = function(...)
   local argv = ...
   assert(
     argv[1] == "xdg-open"
-      and argv[2] == "https://github.com/vladikchi/nectarlink-noctalia/tree/noctalia"
+      and argv[2] == "https://github.com/vladikchi/nectarlink-noctalia/releases/tag/v0.1.6-nightly.12%2Bnoctalia"
       and #argv == 2
   )
   launches = launches + 1
@@ -218,13 +218,13 @@ refresh()
 respondDevices({ devices = { { id = "one", online = true, name = "Phone" } } })
 assert(reads > before and latest.state == "ready" and latest.error == nil)
 assert(notices == 0 and launches == 0)
-watchers["nl.command"]({ action = "open_fork" })
+watchers["nl.command"]({ action = "open_fork", value = "https://example.invalid" })
 assert(launches == 1 and notices == 0)
 launchSucceeds = false
 watchers["nl.command"]({ action = "open_fork" })
 assert(launches == 2 and notices == 1)
 print(
-  "PASS: service reason propagation, re-read auth, recovery, no read-error spam; fixed URL on explicit click only"
+  "PASS: service reason propagation, re-read auth, recovery, no read-error spam; versioned release page on explicit click only"
 )
 
 -- Actual page cache: errors remain scoped to a page and never poison valid data.

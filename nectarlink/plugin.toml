@@ -1,6 +1,6 @@
 id = "vladikchi/nectarlink"
 name = "NectarLink"
-version = "0.18.0"
+version = "0.18.1"
 plugin_api = 32
 author = "vladikchi"
 license = "GPL-3.0-or-later"

@@ -574,7 +574,6 @@ function onOpen()
 end
 
 function onClose()
-  model.installCopyStatus = nil
   memory.remember(model.pageView)
   memory.save(model.pageDevice, model.page)
   model.opened = false

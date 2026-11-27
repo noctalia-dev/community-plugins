@@ -3,7 +3,6 @@ dofile("tests/test_runtime.lua")
 local fixture = { state = "unconfigured", error = "credentials_missing", devices = {} }
 local tree, watcher
 local commands = {}
-local clipboard, copies, clipboardAvailable = nil, 0, true
 ui = setmetatable({}, {
   __index = function(_, kind)
     return function(props, children)
@@ -17,11 +16,8 @@ panel = {
   end,
 }
 noctalia = {
-  copyToClipboard = function(text, mime)
-    assert(mime == "text/plain")
-    copies = copies + 1
-    clipboard = text
-    return clipboardAvailable
+  copyToClipboard = function()
+    error("setup must not write to the clipboard")
   end,
   getConfig = function()
     return nil
@@ -62,24 +58,23 @@ end
 onOpen()
 assert(find("key", "connection-setup") and not find("key", "ring"))
 local card = find("key", "connection-setup")
+local function checkNoInstallerCommand(node)
+  local text = node.props.text or ""
+  assert(not text:find("install.sh", 1, true), "setup must not display the installer script")
+  for _, child in ipairs(node.children) do
+    checkNoInstallerCommand(child)
+  end
+end
+checkNoInstallerCommand(card)
+assert(not find("key", "copy-install-command", card))
 local used = card.props.padding * 2 + (#card.children - 1) * card.props.gap
 for _, child in ipairs(card.children) do
   used = used + (child.props.height or (child.kind == "label" and 14 or 0))
 end
 assert(used <= card.props.height, "setup content exceeds fixed panel height")
 assert(tree.props.width == 1072 and tree.props.height == 528)
-assert(copies == 0, "rendering the command must not modify the clipboard")
-local install = "curl -fsSL https://github.com/vladikchi/nectarlink-noctalia/releases/latest/download/install.sh | sh"
-assert(find("text", install))
-local beforeCopy = #commands
-find("key", "copy-install-command").props.onClick()
-assert(copies == 1 and clipboard == install and #commands == beforeCopy)
-assert(find("key", "copy-install-command").props.tooltip == "Copied")
-clipboardAvailable = false
-find("key", "copy-install-command").props.onClick()
-assert(find("key", "copy-install-command").props.tooltip == "Could not copy the command")
 for _, action in ipairs({
-  { "How to install", "open_fork" },
+  { "Linux packages", "open_fork" },
   { "Open application", "open" },
   { "Check connection", "refresh" },
 }) do

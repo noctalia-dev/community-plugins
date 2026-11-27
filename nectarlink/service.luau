@@ -564,8 +564,8 @@ noctalia.state.watch("nl.command", function(raw)
   elseif cmd.action == "open" then
     launch(nil)
   elseif cmd.action == "open_fork" then
-    -- Explicit click and fixed URL only; no downloads, installation or shell.
-    local url = "https://github.com/vladikchi/nectarlink-noctalia/tree/noctalia"
+    -- Open the versioned release page, not a script or a download.
+    local url = "https://github.com/vladikchi/nectarlink-noctalia/releases/tag/v0.1.6-nightly.12%2Bnoctalia"
     if not noctalia.runAsync({ "xdg-open", url }) then
       noctalia.notifyError(
         "NectarLink",

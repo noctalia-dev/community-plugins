@@ -10,16 +10,16 @@ Check your Android phone's battery from the Noctalia bar. Open the NectarLink pa
 | --- | --- |
 | ID | `vladikchi/nectarlink` |
 | Entries | Bar widget: `phone`; panel: `controls`; service: `connection` |
-| Version | `0.18.0` |
+| Version | `0.18.1` |
 | Plugin API | `32` |
 | License | [GPL-3.0-or-later](LICENSE) |
 
 ## Requirements
 
 - Noctalia 5.2.0 or later.
-- `nectarlink-desktop` from the **NectarLink for Noctalia** fork. Use **How to install** in the panel or find the Linux packages under [Releases in `vladikchi/nectarlink-noctalia`](https://github.com/vladikchi/nectarlink-noctalia/releases). The standard desktop build does not provide the extended local API this plugin needs. Run the app and Noctalia as the same user and use NectarLink's default data directory. If you use an AppImage, make it executable and set **NectarLink executable** to its absolute path.
-- `xdg-open` on Noctalia's `PATH` for the **How to install** button.
-- The official NectarLink Android app from [Releases in `thtbee/nectarlink`](https://github.com/thtbee/nectarlink/releases), paired with the desktop app. No custom Android build is needed. Available actions depend on your phone and the permissions you grant.
+- `nectarlink-desktop` from the **NectarLink for Noctalia** fork. Use **Linux packages** in the panel to open the [Nightly 12 for Noctalia release](https://github.com/vladikchi/nectarlink-noctalia/releases/tag/v0.1.6-nightly.12%2Bnoctalia), then choose an AppImage, `.deb`, or `.rpm` from the assets. The standard desktop build does not provide the extended local API this plugin needs. Run the app and Noctalia as the same user and use NectarLink's default data directory. If you use an AppImage, make it executable and set **NectarLink executable** to its absolute path.
+- `xdg-open` on Noctalia's `PATH` for the **Linux packages** button.
+- The [official NectarLink Nightly 12 Android app](https://github.com/thtbee/nectarlink/releases/tag/v0.1.6-nightly.12) paired with the Nightly 12 desktop app. No custom Android build is needed. Available actions depend on your phone and the permissions you grant.
 
 An estimated time to full charge and background page preloading require Desktop `0.1.6-nightly.12+noctalia` or a newer compatible build.
 
@@ -76,7 +76,7 @@ Replace `messages` with `home`, `calls`, `photos`, `apps`, `deck`, or `guide` to
 ## Notes
 
 - **Network and privacy:** The plugin reads `~/.local/share/Nectarlink/api-token.json` and sends authenticated HTTP requests only to the desktop app at `127.0.0.1`. The desktop app talks to the phone. The plugin does not read pairing keys or the app database. If Noctalia uses an HTTP proxy, add `127.0.0.1` to its `no_proxy` environment variable. The plugin blocks the request rather than sending the token through the proxy.
-- **Files and clipboard:** The plugin doesn't write files directly; its drafts and caches stay in memory. It uses local photo and app previews created by the desktop app. The setup screen can copy the installer command to the clipboard, but the plugin never downloads or runs it. The desktop app handles file transfers and saving requested photos.
-- **Processes:** The plugin runs `nectarlink-desktop` (or the configured executable) when you ask it to open the app, timeline, file picker, or clipboard tool. **How to install** opens the project page through `xdg-open`. Neither command is run through a shell.
+- **Files and clipboard:** The plugin doesn't write files directly; its drafts and caches stay in memory. It uses local photo and app previews created by the desktop app. The desktop app handles file transfers and saving requested photos.
+- **Processes:** The plugin runs `nectarlink-desktop` (or the configured executable) when you ask it to open the app, timeline, file picker, or clipboard tool. **Linux packages** opens the versioned release page through `xdg-open`; the plugin does not download or run an installer. Neither process is launched through a shell.
 - **Phone actions:** Action buttons send requests without an extra confirmation from the plugin. Entering or selecting a number doesn't dial it. Turning off Wi-Fi can disconnect your phone. The hotspot control asks you to choose **On** or **Off** because the phone doesn't report its current hotspot state. File and clipboard shortcuts require exactly one paired phone, and it must be online. After a timeout, check your phone or PC before trying again; the plugin does not retry the action automatically.
 - **Messages:** Chats built from notifications aren't a full message history. The app's privacy settings and Android permissions determine what the plugin can read.
