@@ -1,0 +1,269 @@
+{
+  "title": "Smart Taskbar",
+  "hint": "Click to expand or collapse \u2022 Wheel to navigate \u2022 Right click for settings",
+  "disconnected": "Waiting for compositor windows. Check the compositor requirements and diagnostic logging if the taskbar stays hidden.",
+  "action_failed": "The compositor could not complete the window action.",
+  "unsupported_action": "This compositor does not support the requested action.",
+  "launcher_missing": "Install gtk-launch to start pinned desktop entries.",
+  "settings": {
+    "expand_mode": {
+      "label": "Expansion",
+      "description": "Hover to reveal running apps, click to toggle, or keep the dock expanded."
+    },
+    "hover_delay": {
+      "label": "Expand delay (ms)",
+      "description": "Wait before opening the application strip on hover."
+    },
+    "collapse_delay": {
+      "label": "Collapse delay (ms)",
+      "description": "Wait after the pointer leaves. Manual sorting stays open until clicked to protect drags."
+    },
+    "animations": {
+      "label": "Animate transitions",
+      "description": "Smooth expansion fades and optional icon enlargement. Turn off for reduced motion."
+    },
+    "animation_duration": {
+      "label": "Animation duration (ms)",
+      "description": "Duration of short fades and hover enlargement; no idle frame loop."
+    },
+    "min_width": {
+      "label": "Minimum width (px)",
+      "description": "Manual mode. Minimum expanded extent in logical pixels, limited by maximum width."
+    },
+    "max_width": {
+      "label": "Maximum width (px)",
+      "description": "Main-axis limit, including padding and arrows. Use bar/widget scale 1 and host capsule padding 0 for the same outer limit."
+    },
+    "collapsed_width": {
+      "label": "Collapsed width (px)",
+      "description": "Manual mode. Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open."
+    },
+    "icon_size": {
+      "label": "Icon size (px)",
+      "description": "Manual mode. Base size in logical pixels. Leave room for hover enlargement within your bar thickness."
+    },
+    "icon_spacing": {
+      "label": "Icon spacing (px)",
+      "description": "Manual mode. Gap between application cells. Single-window apps have no count lane or marker."
+    },
+    "overflow_behavior": {
+      "label": "Overflow navigation",
+      "description": "Wheel navigation replaces visible items; the viewport is clipped."
+    },
+    "scroll_step": {
+      "label": "Scroll step",
+      "description": "Application items per wheel gesture in item mode."
+    },
+    "auto_reveal_focused": {
+      "label": "Reveal focused app",
+      "description": "Reveal on focus changes and expansion. Manual wheel navigation remains usable until focus changes."
+    },
+    "show_scroll_indicators": {
+      "label": "Overflow arrows",
+      "description": "Subtle direction indicators inside the width budget."
+    },
+    "display_mode": {
+      "label": "Application display",
+      "description": "Additional workspace and output filters below apply to running windows."
+    },
+    "workspace_filter": {
+      "label": "Workspace filter",
+      "description": "Active uses compositor active or focused workspaces; combines with output filtering."
+    },
+    "output_filter": {
+      "label": "Output filter",
+      "description": "Current means this bar instance\u2019s output, not the globally focused monitor."
+    },
+    "show_minimized": {
+      "label": "Include minimized",
+      "description": "Umbriel reports minimized state; unavailable state is treated as not minimized."
+    },
+    "grouping": {
+      "label": "Grouping",
+      "description": "Unknown application IDs remain separate. Workspace groups use a representative application icon."
+    },
+    "duplicate_indicator": {
+      "label": "Window count badges",
+      "description": "Numeric corner badges appear only for applications with more than one window."
+    },
+    "sorting": {
+      "label": "Sorting",
+      "description": "Launch order means first observed order. Manual order is per instance and resets on reload."
+    },
+    "exclusions": {
+      "label": "Excluded apps",
+      "description": "Exact normalized desktop/application IDs. No shell patterns."
+    },
+    "pinned_apps": {
+      "label": "Pinned applications",
+      "description": "Exact desktop-entry IDs for launchers. Launchers appear with matching open windows; the entire widget hides when no matching windows remain."
+    },
+    "app_aliases": {
+      "label": "Application aliases",
+      "description": "Map normalized unusual application IDs to desktop-entry IDs. Matching ignores case and a .desktop suffix."
+    },
+    "collapsed_label": {
+      "label": "Collapsed text",
+      "description": "Optional text within the fixed width. Single-window apps never show a count; side bars show the icon only."
+    },
+    "capsule_radius": {
+      "label": "Capsule radius",
+      "description": "Manual mode. Logical pixels for the plugin\u2019s own theme-colored capsule."
+    },
+    "opacity": {
+      "label": "Capsule opacity",
+      "description": "Background alpha only; icons and text stay opaque."
+    },
+    "border": {
+      "label": "Capsule border",
+      "description": "Use the active theme outline role."
+    },
+    "active_indicator": {
+      "label": "Highlight focused app",
+      "description": "Use the theme primary container role."
+    },
+    "minimized_indicator": {
+      "label": "Dim minimized apps",
+      "description": "Dim a group only when every member is minimized."
+    },
+    "urgent_indicator": {
+      "label": "Urgency border",
+      "description": "Use the theme error role when compositor events provide urgency. Umbriel does not guarantee this field."
+    },
+    "badge_placement": {
+      "label": "Count position",
+      "description": "Place overlay counts on the upper left or right; inline counts before or after the icon. Side bars keep inline counts below the icon."
+    },
+    "click_behavior": {
+      "label": "Left click",
+      "description": "Grouped apps always cycle windows. Minimize requires compositor support."
+    },
+    "middle_click": {
+      "label": "Middle click",
+      "description": "Host defaults to widget settings. To use these actions, explicitly set this instance\u2019s actions.middle = \"none\"."
+    },
+    "refresh_fallback": {
+      "label": "Subscription retry (s)",
+      "description": "Seconds between failed startup retries. Connected streams are event-driven; disconnected streams use their own bounded reconnect delay."
+    },
+    "diagnostic_logging": {
+      "label": "Diagnostic logging",
+      "description": "Log subscription and action errors. Window titles are not logged."
+    },
+    "compositor_compatibility": {
+      "label": "Compositor compatibility",
+      "description": "Automatic supports Umbriel, niri, Hyprland, Mango, and Sway. A selected compositor restricts this widget to that session."
+    },
+    "hover_enlarge": {
+      "label": "Enlarge icons on hover",
+      "description": "Magnify the hovered application inside a fixed cell. No bar movement; respects reduced motion."
+    },
+    "hover_scale": {
+      "label": "Hover enlargement",
+      "description": "Maximum icon scale. Set bar thickness to at least icon size \u00d7 scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar."
+    },
+    "badge_style": {
+      "label": "Count layout",
+      "description": "Overlay a compact count on the icon, or place it beside the icon inside the app capsule. Side bars place inline counts below the icon. Only duplicate windows show a count."
+    },
+    "inline_count_style": {
+      "label": "Inline count appearance",
+      "description": "Choose a plain number on the shared app capsule or a separate number bubble within it. Applies only to inline counts; overlay badges keep their bubble."
+    },
+    "sizing_mode": {
+      "label": "Sizing",
+      "description": "Auto fits icons, spacing, capsule radius and collapsed size to bar configuration, and hides those manual controls. Manual restores your saved dimensions. Maximum width remains available in both modes."
+    },
+    "sizing_bar": {
+      "label": "Sizing bar name",
+      "description": "Leave empty to fit matching bars conservatively, or enter a configured bar name such as default. Used only in Automatic mode. If no matching placement is found, manual dimensions are used."
+    }
+  },
+  "options": {
+    "expand_mode": {
+      "hover": "Hover",
+      "click": "Click",
+      "always": "Always expanded"
+    },
+    "overflow_behavior": {
+      "items": "Step by items",
+      "pages": "Step by page"
+    },
+    "display_mode": {
+      "active": "Active application only",
+      "running": "All running applications",
+      "workspace": "Applications on active workspaces",
+      "all_workspaces": "Applications on all workspaces",
+      "monitor": "Applications on this monitor",
+      "all_monitors": "Applications on all monitors",
+      "running_pinned": "Running and pinned applications",
+      "pinned": "Pinned applications only"
+    },
+    "workspace_filter": {
+      "all": "All workspaces",
+      "active": "Active workspaces"
+    },
+    "output_filter": {
+      "all": "All monitors",
+      "current": "This monitor"
+    },
+    "grouping": {
+      "app": "Application ID",
+      "workspace": "Workspace",
+      "app_workspace": "Application and workspace",
+      "windows": "Individual windows"
+    },
+    "duplicate_indicator": {
+      "badge": "Numeric count",
+      "none": "Hide badges"
+    },
+    "sorting": {
+      "mru": "Most recently focused",
+      "launch": "First observed order",
+      "alphabetical": "Alphabetical application ID",
+      "workspace": "Workspace ID order",
+      "manual": "Manual drag order"
+    },
+    "collapsed_label": {
+      "none": "Icon only",
+      "title": "Window title",
+      "name": "Application ID",
+      "count": "Window count"
+    },
+    "badge_placement": {
+      "before": "Before icon / upper left",
+      "after": "After icon / upper right"
+    },
+    "click_behavior": {
+      "cycle": "Focus or cycle",
+      "minimize": "Minimize a focused single window"
+    },
+    "middle_click": {
+      "settings": "Settings",
+      "none": "No action",
+      "close": "Close target window",
+      "minimize": "Minimize or restore target"
+    },
+    "compositor_compatibility": {
+      "auto": "Automatic",
+      "umbriel": "Umbriel only",
+      "niri": "niri only",
+      "hyprland": "Hyprland only",
+      "mango": "Mango only",
+      "sway": "Sway only"
+    },
+    "badge_style": {
+      "overlay": "Overlay",
+      "inline": "Inline capsule"
+    },
+    "inline_count_style": {
+      "plain": "Plain number",
+      "bubble": "Number bubble"
+    },
+    "sizing_mode": {
+      "auto": "Auto",
+      "manual": "Manual"
+    }
+  },
+  "dependency_missing": "Cannot start the application taskbar: {dependency} is unavailable."
+}
