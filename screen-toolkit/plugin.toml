@@ -108,11 +108,24 @@ description_key = "settings.selected_ocr_lang.description"
 default = "eng"
 
 [[setting]]
+key = "share-backend"
+type = "select"
+label_key = "settings.share_backend.label"
+description_key = "settings.share_backend.description"
+default = "uguu"
+options = [
+  { value = "uguu", label_key = "settings.share_backend.options.uguu" },
+  { value = "x02", label_key = "settings.share_backend.options.x02" },
+  { value = "zipline", label_key = "settings.share_backend.options.zipline" },
+]
+
+[[setting]]
 key = "x02-api-key"
 type = "string"
 label_key = "settings.x02_api_key.label"
 description_key = "settings.x02_api_key.description"
 default = ""
+visible_when = { key = "share-backend", values = ["x02"] }
 
 [[setting]]
 key = "x02-expiry"
@@ -120,12 +133,44 @@ type = "select"
 label_key = "settings.x02_expiry.label"
 description_key = "settings.x02_expiry.description"
 default = "7d"
+visible_when = { key = "share-backend", values = ["x02"] }
 options = [
   { value = "1h", label_key = "settings.x02_expiry.options.1h" },
   { value = "1d", label_key = "settings.x02_expiry.options.1d" },
   { value = "7d", label_key = "settings.x02_expiry.options.7d" },
   { value = "30d", label_key = "settings.x02_expiry.options.30d" },
   { value = "permanent", label_key = "settings.x02_expiry.options.permanent" },
+]
+
+[[setting]]
+key = "zipline-token"
+type = "string"
+label_key = "settings.zipline_token.label"
+description_key = "settings.zipline_token.description"
+default = ""
+visible_when = { key = "share-backend", values = ["zipline"] }
+
+[[setting]]
+key = "zipline-url"
+type = "string"
+label_key = "settings.zipline_url.label"
+description_key = "settings.zipline_url.description"
+default = ""
+visible_when = { key = "share-backend", values = ["zipline"] }
+
+[[setting]]
+key = "zipline-expiry"
+type = "select"
+label_key = "settings.zipline_expiry.label"
+description_key = "settings.zipline_expiry.description"
+default = "7d"
+visible_when = { key = "share-backend", values = ["zipline"] }
+options = [
+  { value = "1h", label_key = "settings.zipline_expiry.options.1h" },
+  { value = "1d", label_key = "settings.zipline_expiry.options.1d" },
+  { value = "7d", label_key = "settings.zipline_expiry.options.7d" },
+  { value = "30d", label_key = "settings.zipline_expiry.options.30d" },
+  { value = "permanent", label_key = "settings.zipline_expiry.options.permanent" },
 ]
 
 [[setting]]

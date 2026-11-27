@@ -161,7 +161,7 @@ depends on the compositor.
 - **Palette** copies the extracted hex colors (one per line) to the clipboard.
 - **Share** uploads the current capture and opens a share card: QR code for
   phone handoff, expiry countdown, and upload history (uguu.se by default,
-  or up.x02.me with an API key).
+  up.x02.me with an API key, or a configured Zipline instance).
 
 Results are delivered to the clipboard with a notification — the panel itself
 only holds the tools. Results persist across restarts in the plugin's data
@@ -179,6 +179,10 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `video-path` | `folder` | `~/Videos` | Where recordings are saved. |
 | `filename-format` | `string` | `%Y-%m-%d_%H-%M-%S` | Filename template; the extension is added automatically. |
 | `selected-ocr-lang` | `string` | `eng` | Tesseract language code; combine with `+` (e.g. `eng+fra`). |
+| `share-backend` | `select` | `uguu` | Upload service: `x02`, `uguu.se`, or `zipline`. Upgrading from a version without this setting, run `scripts/migrate-share-backend.sh` once. |
+| `zipline-url` | `string` | *(empty)* | Base URL of the Zipline instance. Use HTTPS to protect the API token. |
+| `zipline-expiry` | `select` | `7d` | Zipline link lifetime: `1h`, `1d`, `7d`, `30d`, or `permanent`. |
+| `zipline-token` | `string` | *(empty)* | Zipline API token. The token is stored in plugin settings and passed to the uploader process as an argument. |
 | `x02-api-key` | `string` | *(empty)* | up.x02.me key for longer-lived, larger uploads. |
 | `x02-expiry` | `select` | `7d` | Link lifetime when an x02 key is set: `1h`, `1d`, `7d`, `30d`, or `permanent`. |
 | `share-skip-popover` | `bool` | `false` | Compatibility setting retained from v4. The v5 result panel copies share links directly. |
