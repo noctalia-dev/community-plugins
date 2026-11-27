@@ -1,0 +1,32 @@
+id           = "tjswysqh-afk/zellij-provider"
+name         = "zellij Provider"
+version      = "0.1.0"
+plugin_api   = 3
+author       = "tjswysqh-afk"
+license      = "MIT"
+icon         = "terminal"
+description  = "Find and attach zellij sessions from the launcher. Type /zj to list zellij sessions or layouts."
+tags         = ["launcher", "productivity", "development"]
+dependencies = ["zellij"]
+
+[[setting]]
+key             = "use_layouts"
+type            = "bool"
+label_key       = "settings.use_layouts.label"
+description_key = "settings.use_layouts.description"
+default         = false
+
+[[setting]]
+key             = "show_kill_actions"
+type            = "bool"
+label_key       = "settings.show_kill_actions.label"
+description_key = "settings.show_kill_actions.description"
+default         = false
+
+[[launcher_provider]]
+id                       = "provider"
+entry                    = "zellij_provider.luau"
+prefix                   = "zj"
+glyph                    = "terminal"
+include_in_global_search = false
+debounce_ms              = 0
