@@ -1,0 +1,18 @@
+id = "suhoiyis/rog-omni-battery"
+name = "ROG Omni Battery"
+version = "1.0.0"
+plugin_api = 43
+author = "Suhoiyis"
+license = "MIT"
+icon = "battery"
+description = "Show the battery levels of a ROG mouse and keyboard paired to one ASUS ROG Omni Receiver."
+tags = ["bar", "service", "hardware", "indicator"]
+dependencies = ["python3"]
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[service]]
+id = "poll"
+entry = "service.luau"

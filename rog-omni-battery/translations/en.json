@@ -1,0 +1,22 @@
+{
+  "device": {
+    "mouse": "Mouse",
+    "keyboard": "Keyboard"
+  },
+  "status": {
+    "asleep": "No reading. Wake the device and refresh.",
+    "cached": "{value} · last reading",
+    "charging": "{value} · charging",
+    "not_charging": "{value} · not charging",
+    "not_recognized": "No recognized paired device"
+  },
+  "error": {
+    "loading": "Reading the ROG Omni Receiver…",
+    "disconnected": "ROG Omni Receiver not found.",
+    "multiple_receivers": "Connect one ROG Omni Receiver at a time.",
+    "pairing_unavailable": "No pairing response. Wake the devices and refresh.",
+    "permission": "Permission denied. Install the udev rule and reconnect the receiver.",
+    "python_missing": "Install python3 and refresh.",
+    "read_failed": "Could not read the receiver. Reconnect it and refresh."
+  }
+}

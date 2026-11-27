@@ -1,0 +1,2 @@
+# Grant the active local desktop session access to the ROG Omni vendor interface.
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ENV{ID_VENDOR_ID}=="0b05", ENV{ID_MODEL_ID}=="1ace", ENV{ID_USB_INTERFACE_NUM}=="02", TAG+="uaccess"
