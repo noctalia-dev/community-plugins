@@ -13,8 +13,87 @@ local SELECTED_HOST_KEY = "beszel.selected_host"
 
 local data = noctalia.state.get(STATE_KEY)
 local sessionHostId = nil
+local cachedOutput = ""
+local watchedOwnerKey = nil
+local lastVisible = true
+local render
+
+local function makeInstanceId()
+  local filter = string.lower(noctalia.string.trim(noctalia.getConfig("system") or ""))
+  local prefix = filter == "" and "0:" or ("1:" .. filter .. ":")
+  return prefix .. tostring({}) .. ":" .. string.format("%06d", math.random(0, 999999))
+end
+
+local instanceId = makeInstanceId()
 
 noctalia.setUpdateInterval(1000)
+
+local function ownerKeyForOutput(out)
+  return "beszel.offline_owner." .. (out ~= "" and out or "default")
+end
+
+local function releaseOwnerKey(key)
+  local current = noctalia.state.get(key)
+  if type(current) == "table" and current.id == instanceId then
+    noctalia.state.set(key, { id = "", ts = 0 })
+  end
+end
+
+local function offlineOwnerKey()
+  if type(barWidget.outputName) == "function" then
+    local out = barWidget.outputName()
+    if type(out) == "string" and out ~= "" and out ~= cachedOutput then
+      releaseOwnerKey(ownerKeyForOutput(cachedOutput))
+      cachedOutput = out
+    end
+  end
+  local key = ownerKeyForOutput(cachedOutput)
+  if watchedOwnerKey ~= key then
+    watchedOwnerKey = key
+    noctalia.state.watch(key, function(nextOwner)
+      if type(nextOwner) == "table" and nextOwner.id == instanceId then
+        return
+      end
+      if type(render) == "function" then
+        render()
+      end
+    end)
+  end
+  return key
+end
+
+local function setWidgetVisible(visible)
+  if visible ~= lastVisible then
+    lastVisible = visible
+    barWidget.setVisible(visible)
+  end
+end
+
+local function claimOfflineOwner()
+  local key = offlineOwnerKey()
+  local now = noctalia.nowMs()
+  local current = noctalia.state.get(key)
+  local currentId = type(current) == "table" and type(current.id) == "string" and current.id or ""
+  local currentTs = type(current) == "table" and tonumber(current.ts) or 0
+  local ageMs = now - currentTs
+
+  if currentId == instanceId then
+    if ageMs >= 2000 then
+      noctalia.state.set(key, { id = instanceId, ts = now })
+    end
+    return true
+  end
+
+  if currentId == "" or instanceId < currentId or ageMs > 5000 then
+    noctalia.state.set(key, { id = instanceId, ts = now })
+    return true
+  end
+  return false
+end
+
+local function releaseOfflineOwner()
+  releaseOwnerKey(offlineOwnerKey())
+end
 
 local function resolveDisplayedSystem(systems, filter)
   if sessionHostId ~= nil then
@@ -34,16 +113,30 @@ local function metricColor(state, statusColor, pct, warnPct, dangerPct)
   return fmt.severityColor(pct, "on_surface", warnPct, dangerPct)
 end
 
-local function buildTooltip(sys, latest, state, filter)
+local function buildTooltip(sys, latest, state, filter, alerts)
   local rows = {}
+  local offline = fmt.isHardOffline(state)
+  local trimmedFilter = noctalia.string.trim(filter or "")
   if sys ~= nil then
     table.insert(rows, { key = noctalia.tr("tooltip.host"), value = sys.name })
     local osLabel = fmt.cleanOsName(sys.os_name)
     if osLabel ~= nil then
       table.insert(rows, { key = noctalia.tr("tooltip.os"), value = osLabel })
     end
+  elseif trimmedFilter ~= "" then
+    table.insert(rows, { key = noctalia.tr("tooltip.host"), value = trimmedFilter })
   end
-  if latest ~= nil then
+  if not offline and type(alerts) == "table" and #alerts > 0 then
+    local labels = {}
+    for _, alert in ipairs(alerts) do
+      table.insert(labels, fmt.formatAlert(alert))
+    end
+    table.insert(rows, {
+      key = noctalia.tr("tooltip.alerts"),
+      value = table.concat(labels, ", "),
+    })
+  end
+  if not offline and latest ~= nil then
     table.insert(rows, {
       key = noctalia.tr("tooltip.cpu"),
       value = string.format("%.1f%%", tonumber(latest.cpu_pct) or 0),
@@ -113,12 +206,12 @@ local function buildTooltip(sys, latest, state, filter)
 
     if fmt.hasNetwork(latest) then
       table.insert(rows, {
-        key = noctalia.tr("tooltip.network"),
-        value = string.format(
-          "↓ %s  ↑ %s",
-          fmt.formatRate(latest.net_recv_bps or 0),
-          fmt.formatRate(latest.net_sent_bps or 0)
-        ),
+        key = noctalia.tr("tooltip.download"),
+        value = "↓ " .. fmt.formatRate(latest.net_recv_bps or 0),
+      })
+      table.insert(rows, {
+        key = noctalia.tr("tooltip.upload"),
+        value = "↑ " .. fmt.formatRate(latest.net_sent_bps or 0),
       })
     end
 
@@ -149,7 +242,12 @@ local function buildTooltip(sys, latest, state, filter)
       table.insert(rows, { key = noctalia.tr("tooltip.updates"), value = updText })
     end
   end
-  table.insert(rows, { key = noctalia.tr("tooltip.status"), value = fmt.stateLabel(state, filter) })
+  local statusLabel = fmt.stateLabel(state, filter)
+  if fmt.isStaleState(state) and latest ~= nil and latest.timestamp_ms ~= nil then
+    local ageMs = noctalia.nowMs() - (tonumber(latest.timestamp_ms) or 0)
+    statusLabel = string.format("%s (%s)", statusLabel, fmt.formatAge(ageMs))
+  end
+  table.insert(rows, { key = noctalia.tr("tooltip.status"), value = statusLabel })
   return rows
 end
 
@@ -188,10 +286,33 @@ local function appendNetworkItems(items, latest, networkMode, color)
   end
 end
 
-local function renderVertical(latest, state, statusColor, warnPct, dangerPct, opts)
+local function alertBadge(alerts)
+  if type(alerts) ~= "table" or #alerts == 0 then
+    return nil
+  end
+  local children = {
+    ui.glyph({ name = "alert-triangle", size = 14, color = "error" }),
+  }
+  if #alerts > 1 then
+    table.insert(children, ui.label({
+      text = tostring(#alerts),
+      color = "error",
+      fontWeight = "semibold",
+      maxLines = 1,
+    }))
+  end
+  return ui.row({ gap = 2, align = "center" }, children)
+end
+
+local function renderVertical(latest, state, statusColor, warnPct, dangerPct, opts, alerts)
   local rows = {}
   local baseColor = state == "connected" and "on_surface" or statusColor
   local mutedColor = state == "connected" and "on_surface_variant" or statusColor
+
+  local badge = alertBadge(alerts)
+  if badge ~= nil then
+    table.insert(rows, badge)
+  end
 
   if opts.showCpu then
     local pct = tonumber(latest.cpu_pct) or 0
@@ -288,7 +409,7 @@ local function renderVertical(latest, state, statusColor, warnPct, dangerPct, op
   barWidget.render(ui.column({ gap = 2, align = "center" }, rows))
 end
 
-local function render()
+render = function()
   local filter = noctalia.getConfig("system") or ""
   local opts = {
     showHost = noctalia.getConfig("show_host_name") ~= false,
@@ -305,19 +426,44 @@ local function render()
   local sys = resolveDisplayedSystem(systems, filter)
   local effectiveFilter = sessionHostId ~= nil and "" or filter
   local latest = sys ~= nil and fmt.latestSample(data, sys.id) or nil
+  local alerts = sys ~= nil and fmt.alertsForSystem(data, sys.id) or {}
   local state = fmt.effectiveState(data, sys, latest, effectiveFilter)
   local statusColor = fmt.stateColor(state)
 
-  barWidget.setTooltip(buildTooltip(sys, latest, state, effectiveFilter))
+  local hardOffline = fmt.isHardOffline(state)
+  if hardOffline then
+    if not claimOfflineOwner() then
+      setWidgetVisible(false)
+      return
+    end
+    setWidgetVisible(true)
+    barWidget.clearTooltip()
+  else
+    releaseOfflineOwner()
+    setWidgetVisible(true)
+    barWidget.setTooltip(buildTooltip(sys, latest, state, effectiveFilter, alerts))
+  end
 
   local showMetrics = latest ~= nil
-    and state ~= "disconnected"
-    and state ~= "auth_error"
+    and not hardOffline
     and state ~= "not_found"
 
   if not showMetrics then
+    local statusText = fmt.stateLabel(state, effectiveFilter)
+    local badge = not hardOffline and alertBadge(alerts) or nil
+    if badge ~= nil then
+      barWidget.render(ui.row({ gap = 6, align = "center" }, {
+        badge,
+        ui.label({
+          text = statusText,
+          color = statusColor,
+          maxLines = 1,
+        }),
+      }))
+      return
+    end
     barWidget.render(ui.label({
-      text = fmt.stateLabel(state, effectiveFilter),
+      text = statusText,
       color = statusColor,
       maxLines = 1,
     }))
@@ -325,7 +471,7 @@ local function render()
   end
 
   if barWidget.isVertical() then
-    renderVertical(latest, state, statusColor, warnPct, dangerPct, opts)
+    renderVertical(latest, state, statusColor, warnPct, dangerPct, opts, alerts)
     return
   end
 
@@ -338,6 +484,11 @@ local function render()
       color = baseColor,
       maxLines = 1,
     }))
+  end
+
+  local badge = alertBadge(alerts)
+  if badge ~= nil then
+    table.insert(items, badge)
   end
 
   if opts.showCpu then

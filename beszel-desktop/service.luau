@@ -3,6 +3,8 @@
 -- Bridges `beszel-ctl watch --raw --reconnect` into shared `noctalia.state`
 -- so multiple bar widgets and the panel share one local Unix socket stream.
 
+local fmt = require("./lib/format.luau")
+
 local STATE_KEY = "beszel.data"
 
 local connection = {
@@ -12,8 +14,13 @@ local connection = {
 }
 local systems = {}
 local historyBySystem = {}
+local alertsBySystem = {}
+local alertCounts = {}
+local seenAlertIds = {}
+local alertsInitialized = false
 local historyCapacity = 60
 local hubUrl = nil
+local ctlPath = nil
 local ctlMissing = false
 
 local function shellQuote(str)
@@ -62,10 +69,52 @@ local function publish()
     hubUrl = hubUrl,
     systems = systems,
     historyBySystem = historyBySystem,
+    alertsBySystem = alertsBySystem,
+    alertCounts = alertCounts,
     historyCapacity = historyCapacity,
+    ctlPath = ctlPath,
     ctlMissing = ctlMissing,
     updatedAtMs = noctalia.nowMs(),
   })
+end
+
+local function systemDisplayName(systemId)
+  local sys = fmt.findSystemById(systems, systemId)
+  if sys ~= nil and type(sys.name) == "string" and sys.name ~= "" then
+    return sys.name
+  end
+  return tostring(systemId or "")
+end
+
+local function applyAlerts(rawAlerts, notifyNew)
+  local nextBySystem = {}
+  local nextSeen = {}
+  local shouldNotify = notifyNew and alertsInitialized and noctalia.getConfig("notify_alerts") ~= false
+
+  if type(rawAlerts) == "table" then
+    for _, alert in ipairs(rawAlerts) do
+      if type(alert) == "table" and type(alert.system_id) == "string" then
+        local list = nextBySystem[alert.system_id]
+        if list == nil then
+          list = {}
+          nextBySystem[alert.system_id] = list
+        end
+        table.insert(list, alert)
+        local key = tostring(alert.id or (alert.system_id .. ":" .. tostring(alert.name or "")))
+        nextSeen[key] = true
+        if shouldNotify and not seenAlertIds[key] then
+          noctalia.notifyError(
+            noctalia.tr("alerts.notification_title", { host = systemDisplayName(alert.system_id) }),
+            fmt.formatAlert(alert)
+          )
+        end
+      end
+    end
+  end
+
+  alertsBySystem = nextBySystem
+  seenAlertIds = nextSeen
+  alertsInitialized = true
 end
 
 local function applySnapshot(msg)
@@ -98,6 +147,8 @@ local function applySnapshot(msg)
   systems = nextSystems
   historyBySystem = nextHistory
   historyCapacity = cap
+  alertCounts = type(msg.alert_counts) == "table" and msg.alert_counts or {}
+  applyAlerts(msg.alerts, false)
   publish()
 end
 
@@ -142,10 +193,31 @@ local function onRelayLine(rawLine)
   elseif msg.type == "sample" then
     applySample(msg.system_id, msg.sample)
   elseif msg.type == "connection" and type(msg.connection) == "table" then
+    local prevState = type(connection) == "table" and connection.state or nil
+    local prevErr = type(connection) == "table" and connection.last_error or nil
+    local prevAttempts = type(connection) == "table" and connection.reconnect_attempts or nil
     connection = msg.connection
-    publish()
+    local alertsCleared = false
+    if fmt.isHardOffline(connection.state) then
+      if next(alertsBySystem) ~= nil or next(alertCounts) ~= nil or alertsInitialized then
+        alertsCleared = true
+      end
+      alertsBySystem = {}
+      alertCounts = {}
+      alertsInitialized = false
+    end
+    if alertsCleared
+        or connection.state ~= prevState
+        or connection.last_error ~= prevErr
+        or connection.reconnect_attempts ~= prevAttempts then
+      publish()
+    end
   elseif msg.type == "systems_changed" and type(msg.systems) == "table" then
     systems = msg.systems
+    publish()
+  elseif msg.type == "alerts_changed" and type(msg.alerts) == "table" then
+    alertCounts = type(msg.alert_counts) == "table" and msg.alert_counts or {}
+    applyAlerts(msg.alerts, true)
     publish()
   end
 end
@@ -153,6 +225,7 @@ end
 local function startStream()
   local binPath, found = resolveCtlBinary()
   if not found then
+    ctlPath = nil
     ctlMissing = true
     connection = {
       state = "disconnected",
@@ -165,6 +238,7 @@ local function startStream()
     return
   end
 
+  ctlPath = binPath
   ctlMissing = false
   local cmd = buildStreamCommand(binPath)
   noctalia.setUpdateInterval(60000)
