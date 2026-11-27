@@ -279,10 +279,18 @@ def discard(temporary: Path) -> None:
         pass
 
 
-def write_atomically(path: Path, text: str) -> None:
-    temporary = stage(path, text)
+def write_target(path: Path) -> Path:
     try:
-        os.replace(temporary, path)
+        return path.resolve(strict=False)
+    except (OSError, RuntimeError):
+        return path
+
+
+def write_atomically(path: Path, text: str) -> None:
+    target = write_target(path)
+    temporary = stage(target, text)
+    try:
+        os.replace(temporary, target)
     except BaseException:
         discard(temporary)
         raise
@@ -358,7 +366,12 @@ def apply(theme: str, size: int, effect: str, radius: int) -> int:
             return 1
         if manifest_write is not None:
             write_atomically(*manifest_write)
-        os.replace(temporary, CONFIG)
+        target = write_target(CONFIG)
+        if target == CONFIG:
+            os.replace(temporary, CONFIG)
+        else:
+            write_atomically(target, candidate)
+            discard(temporary)
     except BaseException:
         discard(temporary)
         raise
