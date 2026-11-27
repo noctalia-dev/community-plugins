@@ -1,0 +1,83 @@
+{
+  "picker": {
+    "title": "Theme-Auswahl",
+    "empty": "Noch keine Themes",
+    "empty_hint": "Erstelle dein erstes Theme im Manager.",
+    "open_wallpapers": "Wallpaper",
+    "open_manager": "Manager",
+    "hint": "↑ ↓ zum Navigieren · Enter zum Anwenden · Esc zum Schließen",
+    "applied": "Theme angewendet"
+  },
+  "wallpapers": {
+    "title": "Wallpaper",
+    "back": "Themes",
+    "no_theme": "Kein Theme ausgewählt",
+    "no_theme_hint": "Wähle zuerst ein Theme in der Theme-Auswahl.",
+    "empty": "Dieses Theme hat keine Wallpaper",
+    "empty_hint": "Füge diesem Theme im Manager Wallpaper hinzu.",
+    "hint": "← → zum Navigieren · Enter zum Anwenden · Space für Zufall · Esc zum Schließen",
+    "switched": "Wallpaper gewechselt"
+  },
+  "manager": {
+    "title": "Theme-Manager",
+    "themes": "Themes",
+    "new_theme": "Neues Theme",
+    "default_name": "Neues Theme",
+    "name": "Name",
+    "name_placeholder": "Theme-Name",
+    "scheme": "Farbschema",
+    "source_builtin": "Integriert",
+    "source_community": "Community",
+    "source_custom": "Benutzerdefiniert",
+    "no_schemes": "Keine Farbschemata gefunden.",
+    "always_first": "Immer erstes Wallpaper verwenden",
+    "wallpapers": "Wallpaper",
+    "add_wallpapers": "Wallpaper hinzufügen",
+    "done_adding": "Fertig",
+    "add": "Hinzufügen",
+    "loading": "Lädt…",
+    "no_wallpapers": "Noch keine Wallpaper.",
+    "no_selection": "Wähle ein Theme zum Bearbeiten.",
+    "toggle_hint": "Klicken zum Hinzufügen/Entfernen",
+    "delete": "Theme löschen"
+  },
+  "nav": {
+    "themes": "Themes",
+    "wallpapers": "Wallpaper",
+    "manager": "Manager"
+  },
+  "settings": {
+    "notify_on_change": {
+      "label": "Bei Änderung benachrichtigen",
+      "description": "Desktop-Benachrichtigung anzeigen, wenn ein Theme oder Wallpaper angewendet wird."
+    },
+    "close_on_apply": {
+      "label": "Nach Anwenden schließen (Wallpaper)",
+      "description": "Das Wallpaper-Panel nach dem Anwenden eines Wallpapers schließen."
+    },
+    "show_nav_picker": {
+      "label": "Theme-Auswahl: Navigations-Buttons",
+      "description": "Buttons in der Theme-Auswahl anzeigen, die zu den anderen Panels verlinken."
+    },
+    "show_nav_wallpapers": {
+      "label": "Wallpaper: Navigations-Buttons",
+      "description": "Buttons im Wallpaper-Panel anzeigen, die zu den anderen Panels verlinken."
+    },
+    "show_nav_manager": {
+      "label": "Manager: Navigations-Buttons",
+      "description": "Buttons im Manager anzeigen, die zu den anderen Panels verlinken."
+    },
+    "show_title_picker": {
+      "label": "Theme-Auswahl: Titelleiste",
+      "description": "Die Titelleiste in der Theme-Auswahl anzeigen."
+    },
+    "show_title_wallpapers": {
+      "label": "Wallpaper: Titelleiste",
+      "description": "Die Titelleiste im Wallpaper-Panel anzeigen."
+    },
+    "show_title_manager": {
+      "label": "Manager: Titelleiste",
+      "description": "Die Titelleiste im Manager anzeigen."
+    }
+  }
+}
