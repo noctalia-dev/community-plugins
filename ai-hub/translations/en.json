@@ -1,0 +1,224 @@
+{
+  "settings": {
+    "provider": {
+      "label": "Provider",
+      "description": "Which OpenAI-compatible endpoint to talk to. OmniRoute and Ollama are local and need no key."
+    },
+    "endpoint": {
+      "label": "Endpoint",
+      "description": "Optional. Overrides the provider's base URL; a pasted .../chat/completions or trailing slash is normalised."
+    },
+    "api_key": {
+      "label": "API key",
+      "description": "Sent as a Bearer token. An empty key sends no Authorization header at all."
+    },
+    "key_source": {
+      "label": "Where the key comes from",
+      "description": "Type a key here, or reuse one already stored by OpenCode."
+    },
+    "auth_provider": {
+      "label": "Provider name in auth.json",
+      "description": "Name of the credential inside ~/.local/share/opencode/auth.json. Leave empty when only one is usable."
+    },
+    "model": {
+      "label": "Model",
+      "description": "Default model id. The panel's picker overrides it and remembers the choice."
+    },
+    "stream": {
+      "label": "Stream responses",
+      "description": "Show the answer as it arrives. Falls back to a buffered request when streaming is unavailable."
+    },
+    "tool_permission": {
+      "label": "Tools",
+      "description": "Offer run_command, web_fetch and web_search to the model. Off sends no tool definitions at all."
+    },
+    "web_search": {
+      "label": "Include web_search",
+      "description": "Adds a web_search tool backed by DuckDuckGo's HTML endpoint. Requires tools to be on."
+    },
+    "tool_blocklist": {
+      "label": "Blocked command patterns",
+      "description": "Substring patterns that are refused before and after approval, case-insensitive."
+    },
+    "max_tokens": {
+      "label": "Max tokens",
+      "description": "0 leaves the ceiling to the provider, which is the safer default for reasoning models."
+    },
+    "max_history": {
+      "label": "History sent",
+      "description": "How many transcript entries are sent to the model on each turn."
+    },
+    "system_prompt": {
+      "label": "System prompt",
+      "description": "Optional instructions prepended to every request."
+    },
+    "panel_width": {
+      "label": "Panel width",
+      "description": "Default width for the floating panel in pixels. Close and reopen the panel (or reload Noctalia) for changes to take effect."
+    },
+    "panel_height": {
+      "label": "Panel height",
+      "description": "Default height for the floating panel in pixels. Close and reopen the panel (or reload Noctalia) for changes to take effect."
+    },
+    "key_store_mode": {
+      "label": "Key storage mode",
+      "description": "How API keys are stored: per provider (recommended) or a single global key.",
+      "global": "Single key for everything",
+      "per_provider": "A different key per provider"
+    },
+    "widget": {
+      "glyph": {
+        "label": "Glyph"
+      }
+    }
+  },
+  "provider": {
+    "omniroute": "OmniRoute (local gateway)",
+    "cheaperinference": "CheaperInference",
+    "gemini": "Google Gemini (OpenAI-compatible)",
+    "groq": "Groq",
+    "openrouter": "OpenRouter",
+    "ollama": "Ollama / LM Studio (local)",
+    "zen": "OpenCode Zen / Go",
+    "custom": "Custom (OpenAI-compatible)"
+  },
+  "key_source": {
+    "manual": "Typed here",
+    "auth": "From OpenCode's auth.json"
+  },
+  "tool_permission": {
+    "off": "Off",
+    "ask": "Ask me before each call",
+    "allow": "Run without asking"
+  },
+  "status": {
+    "idle": "ready",
+    "thinking": "waiting for the provider",
+    "streaming": "writing",
+    "waiting": "waiting for your approval"
+  },
+  "role": {
+    "user": "You",
+    "assistant": "Model",
+    "error": "Error",
+    "notice": "Notice",
+    "tool": "Tool"
+  },
+  "badge": {
+    "free": "free",
+    "tools": "tools"
+  },
+  "panel": {
+    "load_models": "Load the model list",
+    "test": "Test the connection",
+    "test_all_providers": "Test all providers",
+    "settings": "Plugin settings",
+    "clear": "Clear the conversation",
+    "close": "Close",
+    "copy": "Copy the message",
+    "copy_code_block": "Copy code block",
+    "copied": "Copied",
+    "copied_body": "The message is on the clipboard.",
+    "code_copied": "Code block copied.",
+    "copy_failed": "Could not copy",
+    "copy_failed_body": "The clipboard refused the text.",
+    "no_code": "No code block",
+    "no_code_body": "The last answer has no code block to copy.",
+    "code_copied": "The last code block is on the clipboard.",
+    "show": "Show",
+    "hide": "Hide",
+    "reasoning": "Reasoning: {text}",
+    "stopped": "(stopped)",
+    "tool_calls": "{count} tool call(s)",
+    "no_model_selected": "No model selected — pick one",
+    "no_models": "No list yet. Use the refresh button, or type an id and press \"Use this text\".",
+    "no_matches": "Nothing matches that filter.",
+    "more_matches": "{count} more results are hidden; narrow the filter.",
+    "history_truncated": "{count} earlier messages hidden.",
+    "show_more": "Show more",
+    "loading": "Loading...",
+    "filter_placeholder": "Filter models...",
+    "use_typed": "Use this text",
+    "use_typed_tooltip": "Uses the text in the filter as the model id, exactly as written.",
+    "filter_free": "Free only",
+    "filter_tools": "With tools",
+    "test_all_models": "Test all",
+    "refresh_hint": "Enter selects · Ctrl+Enter submits",
+    "approve": "Run",
+    "deny": "Deny",
+    "blocked": "Blocked by the pattern \"{pattern}\". Edit the blocklist in the settings to allow it.",
+    "test_result": "Connection test",
+    "placeholder": "Ask something...",
+    "placeholder_busy": "Waiting for the answer...",
+    "waiting_tokens": "waiting for the first tokens...",
+    "stop": "Stop",
+    "send": "Send",
+    "composer_hint": "Enter sends, Shift+Enter adds a line",
+    "composer_waiting": "a tool call is waiting",
+    "empty_title": "No messages yet",
+    "empty_body": "Pick a model above, then write below. Nothing is stored outside this plugin's data directory."
+  },
+  "warning": {
+    "no_endpoint": "Set the provider's endpoint in the plugin settings.",
+    "no_key": "This provider needs an API key; add one in the plugin settings."
+  },
+  "error": {
+    "no_endpoint": "No endpoint is configured for this provider.",
+    "no_key": "No API key is available for this provider.",
+    "no_model": "No model is selected yet: open the panel and pick one.",
+    "busy": "A request is already in flight. Stop it first.",
+    "timeout": "The provider stopped sending data; the request was cancelled.",
+    "bad_json": "The provider answered with something that is not JSON.",
+    "html_body": "The endpoint answered with an HTML page instead of a model response. Check the base URL: is it pointing at the right server and at /v1?",
+    "request_failed": "The request could not be started.",
+    "empty_response": "The provider sent an empty response.",
+    "unauthorized": "The provider rejected the credential (401/403).",
+    "not_found": "The endpoint or model does not exist (404). Check the base URL.",
+    "rate_limited": "The provider is rate limiting this key (429).",
+    "unreachable": "Nothing answered at {endpoint}. Is the local server running?",
+    "server": "The provider failed on its side (HTTP {status}).",
+    "http": "The provider answered HTTP {status}.",
+    "nothing_to_retry": "There is no user message to retry."
+  },
+  "notice": {
+    "length_empty": "The answer was cut off by the token ceiling before producing any text. Raise Max tokens or disable the limit.",
+    "reasoning_only": "The model spent the whole answer on its reasoning trace and returned no text.",
+    "tools_disabled": "The model asked to use tools, but tools are turned off in the settings.",
+    "tool_limit": "Stopped after several tool rounds in a row.",
+    "stopped_empty": "Stopped before the model produced anything."
+  },
+  "notify": {
+    "error_title": "AI Hub",
+    "models_failed": "Could not load the model list",
+    "models_ok": "Model list updated",
+    "stream_ignored": "The provider ignored streaming; the request was repeated without it.",
+    "test_ok": "Connection OK",
+    "test_failed": "Connection failed"
+  },
+  "test": {
+    "models": "/models answered with {count} models",
+    "key": "/key answered: {label} (limit {limit})",
+    "management_key": "This is a management/provisioning key: it authenticates but cannot run inference.",
+    "credits": "/credits: {credits} credits, {usage} used"
+  },
+  "tool": {
+    "run_command": "Run a command",
+    "web_fetch": "Download a page",
+    "web_search": "Search the web",
+    "unknown": "Unknown tool",
+    "result": "{name} returned",
+    "failed": "The tool failed.",
+    "denied": "The user denied this call.",
+    "bad_arguments": "The model sent arguments that are not valid JSON: {error}"
+  },
+  "widget": {
+    "provider": "Provider",
+    "model": "Model",
+    "status": "Status",
+    "no_model": "no model selected"
+  },
+  "dump": {
+    "title": "AI Hub",
+    "written": "Bug report written to {path}"
+  }
+}
