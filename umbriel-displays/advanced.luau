@@ -118,7 +118,7 @@ local function sliderControl(output, key, range)
     end, function(next)
       preview = nil
       commit(output, { [key] = tostring(next) })
-    end),
+    end, "slider-" .. key .. "-" .. output.name),
     tostring(shown))
 end
 
@@ -178,6 +178,7 @@ render = function()
   local body = {
     controls.tiles(outputs, selectedName, function(name)
       selectedName = name
+      preview = nil
       status = ""
       render()
     end),
@@ -213,6 +214,7 @@ end
 
 function onOpen(_context)
   opened = true
+  preview = nil
   status = ""
   statusIsError = false
   render()
