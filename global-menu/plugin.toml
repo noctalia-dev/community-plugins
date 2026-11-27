@@ -1,7 +1,7 @@
 id           = "amancode22/global-menu"
 name         = "Global Menu"
-version      = "1.0.0"
-plugin_api   = 24
+version      = "1.1.0"
+plugin_api   = 26
 author       = "amancode22"
 license      = "GPL-3.0-or-later"
 icon         = "menu-2"
@@ -29,6 +29,29 @@ type     = "bool"
 label_key = "settings.fallback_menus.label"
 description_key = "settings.fallback_menus.description"
 default  = true
+
+[[setting]]
+key      = "highlight_color"
+type     = "select"
+label_key = "settings.highlight_color.label"
+description_key = "settings.highlight_color.description"
+default  = "primary"
+options  = [
+  { value = "primary", label_key = "settings.highlight_color.option.primary" },
+  { value = "secondary", label_key = "settings.highlight_color.option.secondary" },
+  { value = "tertiary", label_key = "settings.highlight_color.option.tertiary" },
+]
+
+[[setting]]
+key      = "highlight_style"
+type     = "select"
+label_key = "settings.highlight_style.label"
+description_key = "settings.highlight_style.description"
+default  = "tint"
+options  = [
+  { value = "tint", label_key = "settings.highlight_style.option.tint" },
+  { value = "solid", label_key = "settings.highlight_style.option.solid" },
+]
 
 [[widget]]
 id    = "menubar"

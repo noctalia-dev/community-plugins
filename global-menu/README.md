@@ -81,8 +81,13 @@ plugin row); the two widget settings are edited where the widget is added.
 | `show_app_name` | `bool` | `true` | Show the focused app's name in front of its menus. |
 | `shortcut_menus` | `bool` | `true` | Curated menus for apps that export none; clicks activate GTK actions or send keystrokes (`wtype`). |
 | `fallback_menus` | `bool` | `true` | Window and session actions for apps with no menu at all. |
+| `highlight_color` | `select` | `primary` | Theme color for the open menu's label and the hovered or selected row: `primary`, `secondary` or `tertiary`. |
+| `highlight_style` | `select` | `tint` | `tint` shades the highlight faintly; `solid` fills it with the color and switches the text on it to the matching `on_` color. |
 | `max_menus` | `int` (widget) | `0` | Hard cap on top-level menu labels in the bar; `0` shows every menu. |
 | `bar_max_width` | `int` (widget) | `0` | Max width in px for the app name and menu labels before the rest moves under »; `0` fits to half of the screen width. |
+
+Corner radii of the menu labels and rows follow the shell's roundness setting
+(`shell.corner_radius_scale`), so a square shell gets square menus.
 
 ## IPC
 
