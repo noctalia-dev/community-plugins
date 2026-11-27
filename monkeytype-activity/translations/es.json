@@ -1,0 +1,126 @@
+{
+  "action": {
+    "open_ape_keys": "Abrir Ape Keys",
+    "open_profile": "Abrir perfil",
+    "open_settings": "Abrir ajustes",
+    "open_site": "Abrir MonkeyType",
+    "refresh": "Actualizar",
+    "try_again": "Reintentar"
+  },
+  "metric": {
+    "best_streak": "Mejor racha",
+    "current_streak": "Racha actual",
+    "today": "Hoy"
+  },
+  "panel": {
+    "day_total": {
+      "one": "{date} · {count} test",
+      "other": "{date} · {count} tests"
+    },
+    "last_test": "Último test · {wpm} ppm · {accuracy}% · {mode}",
+    "last_test_plain": "Último test · {wpm} ppm · {accuracy}%",
+    "mode": {
+      "custom": "personalizado",
+      "quote": "cita",
+      "time": "{value} s",
+      "words": "{value} palabras",
+      "zen": "zen"
+    },
+    "preparing": "Preparando el calendario interactivo…",
+    "title": "Actividad de MonkeyType",
+    "less": "Menos",
+    "more": "Más",
+    "last_12_months": "últimos 12 meses",
+    "range_last_12_months": "los últimos 12 meses",
+    "view_total": "{count} tests en {range}"
+  },
+  "plugin": {
+    "description": "Un calendario nativo de práctica de MonkeyType para tu barra de Noctalia.",
+    "name": "Actividad de MonkeyType"
+  },
+  "settings": {
+    "ape_key": {
+      "description": "Crea una clave en MonkeyType, en Ajustes y luego Ape Keys, y pégala aquí. Las peticiones envían la clave en una cabecera, nunca en una línea de comandos.",
+      "label": "Ape Key"
+    },
+    "panel_content": {
+      "show_best_streak": {
+        "description": "Muestra la racha de práctica más larga debajo del calendario.",
+        "label": "Mostrar mejor racha"
+      },
+      "show_current_streak": {
+        "description": "Muestra la racha de práctica actual debajo del calendario.",
+        "label": "Mostrar racha actual"
+      },
+      "show_last_test": {
+        "description": "Muestra las palabras por minuto y la precisión del último test guardado.",
+        "label": "Mostrar último test"
+      },
+      "show_profile_button": {
+        "description": "Muestra el botón que abre tu perfil de MonkeyType en el navegador.",
+        "label": "Mostrar botón de perfil"
+      },
+      "show_today": {
+        "description": "Muestra el número de tests de hoy debajo del calendario.",
+        "label": "Mostrar tests de hoy"
+      },
+      "show_year_total": {
+        "description": "Muestra el número total de tests de la vista seleccionada encima del calendario.",
+        "label": "Mostrar total de la vista"
+      }
+    },
+    "profile_username": {
+      "description": "Opcional. Se usa para el botón de perfil; la Ape Key ya identifica tu cuenta.",
+      "label": "Usuario del perfil"
+    },
+    "refresh_interval": {
+      "description": "Cada cuánto se consulta MonkeyType. Si nada ha cambiado, solo se hace la petición barata de la racha.",
+      "label": "Intervalo de actualización",
+      "options": {
+        "fifteen": "Cada 15 minutos",
+        "sixty": "Cada 60 minutos",
+        "ten": "Cada 10 minutos",
+        "thirty": "Cada 30 minutos"
+      }
+    },
+    "widget_display_metric": {
+      "description": "Elige el valor que se muestra junto al icono del teclado.",
+      "label": "Métrica del widget",
+      "options": {
+        "current_streak": "Racha actual",
+        "last_wpm": "PPM del último test",
+        "today": "Tests de hoy",
+        "year_total": "Tests del último año"
+      }
+    },
+    "widget_display_mode": {
+      "description": "Elige si el widget muestra solo el icono del teclado o también un valor.",
+      "label": "Visualización del widget",
+      "options": {
+        "icon_and_value": "Icono y valor",
+        "icon_only": "Solo icono"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "MonkeyType ha rechazado la Ape Key.",
+    "inactive_key": "Esa Ape Key está desactivada. Actívala en las Ape Keys de MonkeyType o crea una nueva.",
+    "invalid_key": "Esa Ape Key no es válida. Crea una nueva en Ajustes, luego Ape Keys.",
+    "invalid_response": "MonkeyType ha devuelto una respuesta inesperada.",
+    "loading": "Cargando la actividad de MonkeyType…",
+    "missing_xdg_open": "Hace falta xdg-open para abrir MonkeyType.",
+    "no_activity": "Todavía no hay tests guardados en esta cuenta de MonkeyType.",
+    "no_key": "Añade tu Ape Key de MonkeyType en los ajustes del plugin.",
+    "rate_limited": "Límite de peticiones de MonkeyType alcanzado. Se reintentará más tarde.",
+    "refresh_schedule": "Última actualización a las {time} · Se actualiza cada {interval} min",
+    "refreshing": "Actualizando la actividad de MonkeyType…",
+    "request_error": "No se ha podido contactar con la API de MonkeyType.",
+    "stale": "Mostrando la actividad en caché.",
+    "unavailable": "La actividad de MonkeyType no está disponible."
+  },
+  "widget": {
+    "cached": "Datos en caché",
+    "tooltip": "Hoy: {today} tests\nRacha: {streak} días\nÚltimo año: {total} tests\nÚltimo test: {wpm} ppm · {accuracy}%\n{freshness}\n{refresh}",
+    "up_to_date": "Al día"
+  }
+}
