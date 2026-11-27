@@ -55,6 +55,9 @@ local customEqQueued = nil
 -- setting (spatial, codec), so the panel can show it straight away.
 local writesInFlight = 0
 local writing = {}
+-- Finished writes per setting, so the panel knows when the one it asked for
+-- is over even if it never saw `writing` for it.
+local writesDone = {}
 
 -- The codec asked for, checked against what the headphones report once
 -- they're back from the restart (or the restart window ran out without one).
@@ -169,11 +172,17 @@ local function publish(data)
 		data.restarting = restarting()
 		data.write_error = writeError
 		data.connecting = connecting or nil
+		data.device = deviceMac()
 		local inFlight = {}
 		for k, v in pairs(writing) do
 			inFlight[k] = v
 		end
 		data.writing = inFlight
+		local done = {}
+		for k, v in pairs(writesDone) do
+			done[k] = v
+		end
+		data.writes_done = done
 		noctalia.state.set(STATUS_KEY, data)
 	end
 end
@@ -327,6 +336,15 @@ local function evaluateMonoAuto(battery, model)
 	end
 end
 
+local function markDisconnected(code)
+	monoTriggerPolls = 0
+	monoClearPolls = 0
+	if monoActive and monoActivatedByAuto then
+		setMono(false, true)
+	end
+	publish({ connected = false, error = code })
+end
+
 local function pollStatus()
 	runCtl({ "status" }, function(parsed)
 		if parsed ~= nil and parsed.connected == true then
@@ -387,15 +405,12 @@ local function pollStatus()
 			lastError = parsed
 		end
 		-- Only report "not connected" after two failures in a row, so one
-		-- dropped poll doesn't flash the panel to "not connected".
+		-- dropped poll doesn't flash the panel to "not connected"; BlueZ itself
+		-- saying the link is down (or Bluetooth is off) is no dropped poll.
 		pollFailures += 1
-		if pollFailures >= POLL_FAILURE_THRESHOLD then
-			monoTriggerPolls = 0
-			monoClearPolls = 0
-			if monoActive and monoActivatedByAuto then
-				setMono(false, true)
-			end
-			publish({ connected = false, error = lastError and lastError.error or nil })
+		local fromBlueZ = parsed ~= nil and (parsed.error == "not_connected" or parsed.error == "bt_off")
+		if pollFailures >= POLL_FAILURE_THRESHOLD or fromBlueZ then
+			markDisconnected(lastError and lastError.error or nil)
 		end
 	end)
 end
@@ -445,6 +460,7 @@ local function runWrite(args, callback, key, value, timeoutMs)
 		writesInFlight = writesInFlight - 1
 		if key ~= nil then
 			writing[key] = nil
+			writesDone[key] = (writesDone[key] or 0) + 1
 		end
 		callback(parsed)
 	end, timeoutMs)
@@ -541,6 +557,34 @@ local function cycleAnc()
 	runWrite({ "cycle-anc" }, applyResultThenRefresh)
 end
 
+-- `bluetoothctl connect`, with "Connecting…" in the panel meanwhile.
+local function connectDevice(mac)
+	connecting = true
+	publish({ connected = false })
+	noctalia.runAsync({ "bluetoothctl", "connect", mac }, function()
+		connecting = false
+		republishMono()
+		-- one failed read is enough to say it didn't work
+		pollFailures = POLL_FAILURE_THRESHOLD - 1
+		pollStatus()
+	end, CONNECT_TIMEOUT_MS)
+end
+
+-- The Connect button on "not connected".
+local function connectPicked()
+	local mac = deviceMac()
+	if mac == "" or connecting then
+		return
+	end
+	linkConnected(mac, function(isConnected)
+		if isConnected == true then
+			pollStatus()
+		else
+			connectDevice(mac)
+		end
+	end)
+end
+
 -- With `connectNow` (a pick in the panel), a device BlueZ reports as
 -- disconnected is also connected, as people expect from clicking it.
 local function selectDevice(mac, connectNow)
@@ -558,15 +602,7 @@ local function selectDevice(mac, connectNow)
 			pollStatus()
 			return
 		end
-		connecting = true
-		publish({ connected = false })
-		noctalia.runAsync({ "bluetoothctl", "connect", mac }, function()
-			connecting = false
-			republishMono()
-			-- one failed read is enough to say it didn't work
-			pollFailures = POLL_FAILURE_THRESHOLD - 1
-			pollStatus()
-		end, CONNECT_TIMEOUT_MS)
+		connectDevice(mac)
 	end)
 end
 
@@ -696,6 +732,8 @@ local function executeCommand(cmdObj)
 		scanDevices(false)
 	elseif cmdObj.action == "select-device" then
 		selectDevice(cmdObj.value, true)
+	elseif cmdObj.action == "connect-device" then
+		connectPicked()
 	elseif cmdObj.action == "forget-device" then
 		forgetDevice()
 	elseif cmdObj.action == "copy-details" then
@@ -771,6 +809,8 @@ function onIpc(event, payload)
 		scanDevices(false)
 	elseif event == "select-device" then
 		selectDevice(payload)
+	elseif event == "connect" then
+		connectPicked()
 	elseif event == "forget-device" then
 		forgetDevice()
 	elseif event == "copy-details" then
@@ -811,6 +851,62 @@ elseif showInBar() or desktopActive or monoAutoSetting() then
 end
 
 noctalia.setUpdateInterval(POLL_INTERVAL_MS)
+
+-- BlueZ announces connects and disconnects on D-Bus, so the bar icon (and
+-- "hide when disconnected") follows them at once instead of a poll or two
+-- later. The loop restarts the monitor if bluetoothd restarts; the polls in
+-- update() stay as the fallback, and the only way without gdbus.
+local LINK_WATCH = "while :; do gdbus monitor --system --dest org.bluez 2>/dev/null"
+	.. " | grep --line-buffered \"org.bluez.Device1', {[^}]*'Connected'\"; sleep 5; done"
+
+-- After a connect, headphones can take a few seconds before their control
+-- channel answers: keep polling a little while until a read gets through.
+local RECONNECT_POLL_MS = 1500
+local RECONNECT_POLLS = 10
+local reconnectGen = 0
+
+local function pollUntilConnected(gen, left)
+	if gen ~= reconnectGen or left <= 0 then
+		return
+	end
+	local current = noctalia.state.get(STATUS_KEY) or {}
+	if current.connected == true and not restarting() then
+		return
+	end
+	if writesInFlight == 0 and not connecting then
+		pollStatus()
+	end
+	noctalia.runAsync({ "sleep", tostring(RECONNECT_POLL_MS / 1000) }, function()
+		pollUntilConnected(gen, left - 1)
+	end, RECONNECT_POLL_MS + 5000)
+end
+
+-- One line per Device1 "Connected" change, e.g.
+-- /org/bluez/hci0/dev_2C_BE_EE_00_11_22: org.freedesktop.DBus.Properties.PropertiesChanged ('org.bluez.Device1', {'Connected': <false>}, @as [])
+local function onLinkEvent(line)
+	local dev, value = line:match("^/org/bluez/hci%d+/dev_([%x_]+): .-'Connected': <(%a+)>")
+	if dev == nil or (dev:gsub("_", ":")):upper() ~= deviceMac():upper() then
+		return
+	end
+	reconnectGen += 1
+	if value == "true" then
+		if restarting() then
+			-- back from a codec switch's restart: the next good read ends it
+			restartSawFailure = true
+		end
+		pollUntilConnected(reconnectGen, RECONNECT_POLLS)
+	elseif value == "false" and not restarting() and writing.codec == nil and not connecting then
+		-- a codec switch's restart (the headphones can drop before the write
+		-- returns) and our own connect attempt have their own handling
+		pollFailures = POLL_FAILURE_THRESHOLD
+		lastError = nil
+		markDisconnected("not_connected")
+	end
+end
+
+if noctalia.commandExists("gdbus") then
+	noctalia.runStream(LINK_WATCH, onLinkEvent)
+end
 
 local function hideWhenDisconnected()
 	return noctalia.getConfig("hide_when_disconnected") == true
