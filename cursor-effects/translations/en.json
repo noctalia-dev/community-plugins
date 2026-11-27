@@ -9,6 +9,7 @@
     "size": "Size",
     "radius": "Effect radius",
     "reset_size": "Reset to default size",
+    "reset_radius": "Reset to default radius",
     "no_themes": "No Xcursor themes found",
     "helper_failed": "Helper failed"
   }

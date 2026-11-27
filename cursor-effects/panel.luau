@@ -25,7 +25,7 @@ local DEFAULT_THEME = "Bibata-Modern-Classic"
 local DEFAULT_SIZE = 24
 local DEFAULT_RADIUS = 96
 local MIN_SIZE, MAX_SIZE = 16, 72
-local MIN_RADIUS, MAX_RADIUS = 32, 256
+local MIN_RADIUS, MAX_RADIUS = 32, 4096
 local PREVIEW_INTERVAL_MS = 120
 
 local function exists(path)
@@ -307,7 +307,23 @@ function render()
 		}),
 		ui.column({ flexGrow = 1, gap = 4 }, {
 			ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-				ui.label({ text = noctalia.tr("panel.radius"), fontSize = 12, color = "on_surface_variant" }),
+				ui.row({ align = "center", gap = 4 }, {
+					ui.label({ text = noctalia.tr("panel.radius"), fontSize = 12, color = "on_surface_variant" }),
+					ui.button({
+						glyph = "restore",
+						variant = "ghost",
+						controlSize = "sm",
+						enabled = active.effect ~= "off",
+						tooltip = noctalia.tr("panel.reset_radius"),
+						onClick = function()
+							if state.effect == "off" then
+								return
+							end
+							state.radius = DEFAULT_RADIUS
+							apply()
+						end,
+					}),
+				}),
 				ui.label({
 					text = active.effect == "off" and noctalia.tr("panel.off") or tostring(math.floor(active.radius + 0.5)),
 					fontSize = 12,
