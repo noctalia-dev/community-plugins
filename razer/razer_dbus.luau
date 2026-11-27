@@ -48,7 +48,7 @@ function Razer.getDeviceInfo(serial: string, callback: (DeviceInfo?) -> ())
   local path = "/org/razer/device/" .. serial
 
   local function queryDynamic(name: string, devType: string)
-    local currentDpi = 1800
+    local currentDpi = 0
     local batteryVal = -1
     local hasBattery = false
     local isCharging = false
@@ -77,7 +77,7 @@ function Razer.getDeviceInfo(serial: string, callback: (DeviceInfo?) -> ())
       if dpiRes.exitCode == 0 and dpiRes.stdout and dpiRes.stdout ~= "" then
         local dpiData = noctalia.json.decode(dpiRes.stdout)
         if dpiData and dpiData.data and dpiData.data[1] and dpiData.data[1][1] then
-          currentDpi = tonumber(dpiData.data[1][1]) or 1800
+          currentDpi = tonumber(dpiData.data[1][1]) or 0
         end
       end
       checkDone()
