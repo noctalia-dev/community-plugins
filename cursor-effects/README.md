@@ -30,8 +30,9 @@ noctalia msg panel-toggle h465855hgg/cursor-effects:panel
 The panel shows:
 
 - **Size** — cursor size from 16 to 72 px; the restore button resets it to 24 px
-- **Effect radius** — radius from 32 to 4096 for the selected effect; the restore
-  button resets it to 96
+- **Effect radius** — radius from 32 to 4096 for the selected effect; drag the
+  logarithmic slider, type an exact value in the field (Enter or the check button),
+  or use the restore button for 96
 - **Theme** — every Xcursor theme found in `~/.local/share/icons`,
   `~/.icons` and `/usr/share/icons`
 - **Cursor effect** — every cursor shader preset found in

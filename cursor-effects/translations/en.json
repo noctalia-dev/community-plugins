@@ -10,6 +10,8 @@
     "radius": "Effect radius",
     "reset_size": "Reset to default size",
     "reset_radius": "Reset to default radius",
+    "apply_radius": "Apply radius",
+    "invalid_radius": "Enter a number between 32 and 4096",
     "no_themes": "No Xcursor themes found",
     "helper_failed": "Helper failed"
   }

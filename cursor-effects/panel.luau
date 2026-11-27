@@ -26,6 +26,8 @@ local DEFAULT_SIZE = 24
 local DEFAULT_RADIUS = 96
 local MIN_SIZE, MAX_SIZE = 16, 72
 local MIN_RADIUS, MAX_RADIUS = 32, 4096
+local RADIUS_SLIDER_STEPS = 1000
+local RADIUS_LOG_RATIO = math.log(MAX_RADIUS / MIN_RADIUS)
 local PREVIEW_INTERVAL_MS = 120
 
 local function exists(path)
@@ -48,6 +50,19 @@ local function clamp(value, minimum, maximum)
 		return maximum
 	end
 	return value
+end
+
+-- The radius range spans two orders of magnitude, so use a logarithmic slider:
+-- low values (where small changes are visible) get most of the track.
+local function radius_to_slider(radius)
+	local clamped = clamp(radius, MIN_RADIUS, MAX_RADIUS)
+	return math.floor(math.log(clamped / MIN_RADIUS) / RADIUS_LOG_RATIO * RADIUS_SLIDER_STEPS + 0.5)
+end
+
+local function slider_to_radius(value)
+	local position = clamp(value, 0, RADIUS_SLIDER_STEPS)
+	local radius = MIN_RADIUS * math.exp(RADIUS_LOG_RATIO * position / RADIUS_SLIDER_STEPS)
+	return clamp(math.floor(radius + 0.5), MIN_RADIUS, MAX_RADIUS)
 end
 
 local function scanThemes()
@@ -122,6 +137,10 @@ local applying, pending = false, false
 local size_previewed = false
 local last_preview_at = 0
 local last_preview_value = nil
+local radius_text = ""
+local radius_input_rev = 0
+local radius_slider_pos = nil
+local radius_slider_dirty = false
 
 local function preview_size(value, force)
 	if applying then
@@ -178,6 +197,10 @@ local function refresh()
 		next_state.radius = clamp(state.radius or DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS)
 	end
 	state = next_state
+	radius_text = tostring(math.floor(state.radius + 0.5))
+	radius_input_rev = radius_input_rev + 1
+	radius_slider_pos = nil
+	radius_slider_dirty = false
 end
 
 local function grid(items, columns, make)
@@ -216,6 +239,30 @@ end
 
 local apply
 
+local function submit_radius(value)
+	if state.effect == "off" then
+		return
+	end
+	local parsed = tonumber(value)
+	if parsed == nil or parsed ~= parsed or parsed == math.huge or parsed == -math.huge then
+		status = noctalia.tr("panel.invalid_radius")
+		status_error = true
+		render()
+		return
+	end
+	local radius = math.floor(clamp(parsed, MIN_RADIUS, MAX_RADIUS) + 0.5)
+	if radius == state.radius then
+		radius_text = tostring(radius)
+		radius_input_rev = radius_input_rev + 1
+		render()
+		return
+	end
+	state.radius = radius
+	radius_text = tostring(radius)
+	radius_input_rev = radius_input_rev + 1
+	apply()
+end
+
 local function finish_apply()
 	applying = false
 	render()
@@ -245,6 +292,7 @@ apply = function()
 			local message = result.stderr ~= "" and result.stderr or noctalia.tr("panel.helper_failed")
 			status = message:gsub("%s+$", ""):sub(1, 240)
 			status_error = true
+			refresh()
 		else
 			status = noctalia.tr("panel.applied")
 			status_error = false
@@ -257,6 +305,7 @@ apply = function()
 	if not started then
 		status = noctalia.tr("panel.helper_failed")
 		status_error = true
+		refresh()
 		clear_size_override(finish_apply)
 	end
 end
@@ -320,32 +369,67 @@ function render()
 								return
 							end
 							state.radius = DEFAULT_RADIUS
+							radius_text = tostring(DEFAULT_RADIUS)
+							radius_input_rev = radius_input_rev + 1
 							apply()
 						end,
 					}),
 				}),
-				ui.label({
-					text = active.effect == "off" and noctalia.tr("panel.off") or tostring(math.floor(active.radius + 0.5)),
-					fontSize = 12,
-					color = "primary",
+				ui.row({ align = "center", gap = 4 }, {
+					ui.input({
+						key = "radius-input-" .. tostring(radius_input_rev),
+						value = active.effect == "off" and "" or tostring(math.floor(active.radius + 0.5)),
+						placeholder = noctalia.tr("panel.off"),
+						fontSize = 12,
+						controlSize = "sm",
+						width = 64,
+						enabled = active.effect ~= "off",
+						onChange = function(value)
+							radius_text = value
+						end,
+						onSubmit = function(value)
+							submit_radius(value)
+						end,
+					}),
+					ui.button({
+						glyph = "check",
+						variant = "ghost",
+						controlSize = "sm",
+						enabled = active.effect ~= "off",
+						tooltip = noctalia.tr("panel.apply_radius"),
+						onClick = function()
+							submit_radius(radius_text)
+						end,
+					}),
 				}),
 			}),
 			ui.slider({
 				key = "cursor-radius",
-				min = MIN_RADIUS,
-				max = MAX_RADIUS,
-				step = 8,
-				value = active.radius,
+				min = 0,
+				max = RADIUS_SLIDER_STEPS,
+				value = radius_to_slider(active.radius),
 				enabled = active.effect ~= "off",
 				flexGrow = 1,
 				onChange = function(value)
-					state.radius = clamp(tonumber(value) or state.radius, MIN_RADIUS, MAX_RADIUS)
-				end,
-				onDragEnd = function(value)
-					state.radius = clamp(tonumber(value) or state.radius, MIN_RADIUS, MAX_RADIUS)
-					if state.effect ~= "off" then
-						apply()
+					local position = tonumber(value)
+					if position == nil then
+						return
 					end
+					radius_slider_pos = position
+					radius_slider_dirty = position ~= radius_to_slider(state.radius)
+				end,
+				onDragEnd = function()
+					if radius_slider_dirty and radius_slider_pos ~= nil then
+						local next_radius = slider_to_radius(radius_slider_pos)
+						if next_radius ~= state.radius then
+							state.radius = next_radius
+							radius_text = tostring(next_radius)
+							radius_input_rev = radius_input_rev + 1
+							apply()
+						end
+					end
+					radius_slider_dirty = false
+					radius_slider_pos = nil
 				end,
 			}),
 		}),
@@ -387,6 +471,8 @@ function render()
 					if effect ~= "off" then
 						state.radius = radii[effect] or state.radius or DEFAULT_RADIUS
 					end
+					radius_text = tostring(math.floor(state.radius + 0.5))
+					radius_input_rev = radius_input_rev + 1
 					apply()
 				end,
 			})
