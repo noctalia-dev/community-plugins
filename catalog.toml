@@ -6330,3 +6330,29 @@ icon = "coffee"
 description = "Caffeine with timed presets, a countdown, auto-off on screen lock, and an optional lid-close inhibit."
 plugin_api = 43
 tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
+
+[[plugin]]
+id = "henriksvensson/beszel-desktop"
+name = "Beszel Desktop"
+version = "0.4.0"
+updated_at = 1795786088
+added_at = 1795786088
+author = "henriksvensson"
+license = "MIT"
+icon = "cpu-usage"
+description = "Monitor remote hosts live from a Beszel hub."
+plugin_api = 48
+tags = ["bar", "panel", "service", "system", "indicator"]
+
+[[plugin]]
+id = "h465855hgg/cursor-effects"
+name = "Cursor Effects"
+version = "0.1.2"
+updated_at = 1795786058
+added_at = 1795786058
+author = "h465855hgg"
+license = "MIT"
+icon = "pointer"
+description = "Switch Umbriel cursor themes and cursor shader effects."
+plugin_api = 56
+tags = ["bar", "panel", "theming", "utility", "umbriel"]
