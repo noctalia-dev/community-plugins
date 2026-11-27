@@ -2,6 +2,7 @@
 
 local STATUS_KEY = "niri_media_idle_status"
 local COMMAND_KEY = "niri_media_idle_command"
+local UNIT = "noctalia-niri-media-idle.service"
 local CONTROL_TIMEOUT_MS = 65000
 local UNIT_STATES = { active = true, inactive = true, failed = true }
 local PROTECTION_STATES = {
@@ -214,23 +215,11 @@ function onIpc(event, _payload)
   end
 end
 
+function onResume()
+  if not status.busy then refresh() end
+end
+
 function onExit(_signal, reason)
   if reason == "reload" then return end
-  if not controlPath then
-    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("error.plugin_directory"))
-    return
-  end
-
-  local started = noctalia.runAsync(
-    { "python3", controlPath, "stop" },
-    function(result)
-      if type(result) ~= "table" or result.exitCode ~= 0 then
-        noctalia.notifyError(noctalia.tr("title"), detailFrom(result))
-      end
-    end,
-    CONTROL_TIMEOUT_MS
-  )
-  if not started then
-    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("error.command_not_started"))
-  end
+  noctalia.runAsync({ "systemctl", "--user", "stop", UNIT })
 end
