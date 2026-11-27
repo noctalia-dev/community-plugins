@@ -8,6 +8,7 @@
     "applying": "Applying…",
     "size": "Size",
     "radius": "Effect radius",
+    "reset_size": "Reset to default size",
     "no_themes": "No Xcursor themes found",
     "helper_failed": "Helper failed"
   }

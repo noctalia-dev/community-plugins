@@ -26,6 +26,7 @@ local DEFAULT_SIZE = 24
 local DEFAULT_RADIUS = 96
 local MIN_SIZE, MAX_SIZE = 16, 72
 local MIN_RADIUS, MAX_RADIUS = 32, 256
+local PREVIEW_INTERVAL_MS = 120
 
 local function exists(path)
 	return noctalia.fileExists(path)
@@ -118,6 +119,55 @@ local themes, effects, radii = {}, {}, {}
 local state = { theme = DEFAULT_THEME, size = DEFAULT_SIZE, effect = "off", radius = DEFAULT_RADIUS }
 local status, status_error = "", false
 local applying, pending = false, false
+local size_previewed = false
+local last_preview_at = 0
+local last_preview_value = nil
+
+local function preview_size(value, force)
+	if applying then
+		return
+	end
+	local size = math.floor(clamp(value, MIN_SIZE, MAX_SIZE) + 0.5)
+	local now = noctalia.nowMs()
+	if not force and size == last_preview_value then
+		return
+	end
+	if not force and now - last_preview_at < PREVIEW_INTERVAL_MS then
+		return
+	end
+	last_preview_at = now
+	last_preview_value = size
+	local started = noctalia.runAsync({ "umbriel", "config", "set", "input.cursor.size", tostring(size) })
+	if started then
+		size_previewed = true
+	end
+end
+
+local function clear_size_override(callback)
+	if not size_previewed then
+		if callback then
+			callback()
+		end
+		return
+	end
+	size_previewed = false
+	last_preview_value = nil
+	last_preview_at = 0
+	local finished = false
+	local function finish()
+		if finished then
+			return
+		end
+		finished = true
+		if callback then
+			callback()
+		end
+	end
+	local started = noctalia.runAsync({ "umbriel", "config", "unset", "input.cursor.size" }, finish)
+	if not started then
+		finish()
+	end
+end
 
 local function refresh()
 	effects, radii = scanEffects()
@@ -164,7 +214,18 @@ local function statusLabel()
 	})
 end
 
-local function apply()
+local apply
+
+local function finish_apply()
+	applying = false
+	render()
+	if pending then
+		pending = false
+		apply()
+	end
+end
+
+apply = function()
 	if applying then
 		pending = true
 		return
@@ -179,8 +240,7 @@ local function apply()
 	local effect = state.effect ~= "" and state.effect or "off"
 	local radius = math.floor(clamp(state.radius or DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS) + 0.5)
 
-	noctalia.runAsync({ "python3", HELPER, "set", theme, tostring(size), effect, tostring(radius) }, function(result)
-		applying = false
+	local started = noctalia.runAsync({ "python3", HELPER, "set", theme, tostring(size), effect, tostring(radius) }, function(result)
 		if result.exitCode ~= 0 then
 			local message = result.stderr ~= "" and result.stderr or noctalia.tr("panel.helper_failed")
 			status = message:gsub("%s+$", ""):sub(1, 240)
@@ -192,12 +252,13 @@ local function apply()
 				radii[effect] = radius
 			end
 		end
-		render()
-		if pending then
-			pending = false
-			apply()
-		end
+		clear_size_override(finish_apply)
 	end)
+	if not started then
+		status = noctalia.tr("panel.helper_failed")
+		status_error = true
+		clear_size_override(finish_apply)
+	end
 end
 
 function render()
@@ -210,7 +271,20 @@ function render()
 	local controls = ui.row({ gap = 16, align = "start" }, {
 		ui.column({ flexGrow = 1, gap = 4 }, {
 			ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-				ui.label({ text = noctalia.tr("panel.size"), fontSize = 12, color = "on_surface_variant" }),
+				ui.row({ align = "center", gap = 4 }, {
+					ui.label({ text = noctalia.tr("panel.size"), fontSize = 12, color = "on_surface_variant" }),
+					ui.button({
+						glyph = "restore",
+						variant = "ghost",
+						controlSize = "sm",
+						tooltip = noctalia.tr("panel.reset_size"),
+						onClick = function()
+							state.size = DEFAULT_SIZE
+							preview_size(DEFAULT_SIZE, true)
+							apply()
+						end,
+					}),
+				}),
 				ui.label({ text = tostring(math.floor(active.size + 0.5)) .. " px", fontSize = 12, color = "primary" }),
 			}),
 			ui.slider({
@@ -222,10 +296,11 @@ function render()
 				flexGrow = 1,
 				onChange = function(value)
 					state.size = clamp(tonumber(value) or state.size, MIN_SIZE, MAX_SIZE)
-					render()
+					preview_size(state.size, false)
 				end,
 				onDragEnd = function(value)
 					state.size = clamp(tonumber(value) or state.size, MIN_SIZE, MAX_SIZE)
+					preview_size(state.size, true)
 					apply()
 				end,
 			}),
@@ -249,7 +324,6 @@ function render()
 				flexGrow = 1,
 				onChange = function(value)
 					state.radius = clamp(tonumber(value) or state.radius, MIN_RADIUS, MAX_RADIUS)
-					render()
 				end,
 				onDragEnd = function(value)
 					state.radius = clamp(tonumber(value) or state.radius, MIN_RADIUS, MAX_RADIUS)
@@ -330,6 +404,10 @@ function onOpen(_context)
 	status = ""
 	status_error = false
 	render()
+end
+
+function onClose()
+	clear_size_override(nil)
 end
 
 function onCloseClicked()
