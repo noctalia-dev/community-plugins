@@ -29,7 +29,8 @@ noctalia msg panel-toggle h465855hgg/cursor-effects:panel
 
 The panel shows:
 
-- **Size** — cursor size from 16 to 72 px; the restore button resets it to 24 px
+- **Size** — cursor size from 16 to 72 px; type an exact value in the field
+  (Enter or the check button), drag the slider, or use the restore button for 24
 - **Effect radius** — radius from 32 to 4096 for the selected effect; drag the
   logarithmic slider, type an exact value in the field (Enter or the check button),
   or use the restore button for 96
@@ -38,8 +39,8 @@ The panel shows:
 - **Cursor effect** — every cursor shader preset found in
   `~/.config/umbriel/shaders/community/cursor/*/effect.toml`, plus `Off`
 
-Picking a row or releasing a slider applies the change immediately. Dragging the size
-slider previews the new size live and persists it on release.
+Picking a row, entering a value, or releasing a slider applies the change immediately.
+Dragging the size slider previews the new size live and persists it on release.
 
 ## Notes
 

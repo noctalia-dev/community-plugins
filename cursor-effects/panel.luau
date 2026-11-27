@@ -141,6 +141,8 @@ local radius_text = ""
 local radius_input_rev = 0
 local radius_slider_pos = nil
 local radius_slider_dirty = false
+local size_text = ""
+local size_input_rev = 0
 
 local function preview_size(value, force)
 	if applying then
@@ -197,6 +199,8 @@ local function refresh()
 		next_state.radius = clamp(state.radius or DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS)
 	end
 	state = next_state
+	size_text = tostring(math.floor(state.size + 0.5))
+	size_input_rev = size_input_rev + 1
 	radius_text = tostring(math.floor(state.radius + 0.5))
 	radius_input_rev = radius_input_rev + 1
 	radius_slider_pos = nil
@@ -260,6 +264,28 @@ local function submit_radius(value)
 	state.radius = radius
 	radius_text = tostring(radius)
 	radius_input_rev = radius_input_rev + 1
+	apply()
+end
+
+local function submit_size(value)
+	local parsed = tonumber(value)
+	if parsed == nil or parsed ~= parsed or parsed == math.huge or parsed == -math.huge then
+		status = noctalia.tr("panel.invalid_size")
+		status_error = true
+		render()
+		return
+	end
+	local size = math.floor(clamp(parsed, MIN_SIZE, MAX_SIZE) + 0.5)
+	if size == state.size then
+		size_text = tostring(size)
+		size_input_rev = size_input_rev + 1
+		render()
+		return
+	end
+	state.size = size
+	size_text = tostring(size)
+	size_input_rev = size_input_rev + 1
+	preview_size(size, true)
 	apply()
 end
 
@@ -329,12 +355,38 @@ function render()
 						tooltip = noctalia.tr("panel.reset_size"),
 						onClick = function()
 							state.size = DEFAULT_SIZE
+							size_text = tostring(DEFAULT_SIZE)
+							size_input_rev = size_input_rev + 1
 							preview_size(DEFAULT_SIZE, true)
 							apply()
 						end,
 					}),
 				}),
-				ui.label({ text = tostring(math.floor(active.size + 0.5)) .. " px", fontSize = 12, color = "primary" }),
+				ui.row({ align = "center", gap = 4 }, {
+					ui.input({
+						key = "size-input-" .. tostring(size_input_rev),
+						value = tostring(math.floor(active.size + 0.5)),
+						placeholder = "16-72",
+						fontSize = 12,
+						controlSize = "sm",
+						width = 64,
+						onChange = function(value)
+							size_text = value
+						end,
+						onSubmit = function(value)
+							submit_size(value)
+						end,
+					}),
+					ui.button({
+						glyph = "check",
+						variant = "ghost",
+						controlSize = "sm",
+						tooltip = noctalia.tr("panel.apply_size"),
+						onClick = function()
+							submit_size(size_text)
+						end,
+					}),
+				}),
 			}),
 			ui.slider({
 				key = "cursor-size",
@@ -349,6 +401,8 @@ function render()
 				end,
 				onDragEnd = function(value)
 					state.size = clamp(tonumber(value) or state.size, MIN_SIZE, MAX_SIZE)
+					size_text = tostring(math.floor(state.size + 0.5))
+					size_input_rev = size_input_rev + 1
 					preview_size(state.size, true)
 					apply()
 				end,
