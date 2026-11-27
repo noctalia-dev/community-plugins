@@ -164,8 +164,8 @@ so the dialog can take focus and reopens once decryption finishes.
 
 ### Quick actions
 
-Run one detail action **without opening the launcher**, so you can bind copy /
-type / autotype to a global shortcut:
+Run one detail action without browsing to the entry, so you can bind copy /
+type / autotype — or reopen the detail view — to a global shortcut:
 
 ```sh
 noctalia msg plugin mellotanica/launcher-pass:quick-actions all <action> [entry-path]
@@ -183,6 +183,7 @@ launcher provider itself cannot receive IPC.)
 | `copy-otp` | `pass otp -c` — current OTP to clipboard, auto-cleared |
 | `type-otp` | type the current OTP with the typing backend |
 | `autotype` | the full **Autotype login** sequence (respects the autotype settings) |
+| `reopen` | reopen the launcher on the current entry's detail view, or at `/pass` when there is no current entry yet |
 
 **Which entry?** With no `entry-path`, the action runs on the **current entry** —
 the last one you opened, acted on, or narrowed a launcher search down to a
@@ -197,13 +198,17 @@ arguments on whitespace, so an explicit path must have **no spaces**; an entry
 whose name contains a space can only be reached through the no-path (current
 entry) form.
 
+After the launcher is closed `reopen` can be used to navigate to the last entry
+without searching for it all over again. On first launch, with no current entry
+yet, it opens the normal `/pass` root instead of failing.
+
 Each action behaves exactly like activating the matching detail row: same
 clipboard timeout, typing delays, and "Copied to clipboard" / failure
 notifications. `type-*` and `autotype` need the typing backend; `copy-otp` / `type-otp`
 need `pass-otp`. The entry is decrypted on demand (a pinentry dialog appears if
 GPG needs the passphrase), reusing the 60-second in-memory cache when warm. An
-unknown action, or no current entry yet, shows a "Quick action failed"
-notification and does nothing.
+unknown action, or no current entry yet for an action other than `reopen`, shows
+a "Quick action failed" notification and does nothing.
 
 Example Hyprland binds:
 
@@ -211,6 +216,7 @@ Example Hyprland binds:
 -- act on whatever entry the launcher last had open / narrowed to
 hl.bind("SUPER + P", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all autotype"))
 hl.bind("SUPER + SHIFT + P", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all copy-password"))
+hl.bind("SUPER + ALT + R", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all reopen"))
 -- or pin a shortcut to one specific entry
 hl.bind("SUPER + ALT + P", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all copy-otp work/aws/root"))
 ```

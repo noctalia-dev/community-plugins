@@ -326,8 +326,8 @@ runs.
 
 ### Quick-action IPC
 
-Runs **one detail action without opening the launcher**, so the user can bind
-copy / type / autotype to any external shortcut:
+Runs **one detail action without browsing to the entry**, so the user can bind
+copy / type / autotype — or reopen the detail view — to any external shortcut:
 
 ```
 noctalia msg plugin mellotanica/launcher-pass:quick-actions all <event> [entryPath]
@@ -362,7 +362,9 @@ whitespace, so that payload **must be space-free**; an entry whose name has
 spaces is only reachable through the no-payload / state path. `event` not in
 `QUICK_ACTIONS` → `notification.quick-action-unknown`; no payload and nothing in
 state yet → `notification.no-current-entry`; both under the
-`notification.quick-action-failed` title, nothing runs.
+`notification.quick-action-failed` title, nothing runs. The one exception is
+`reopen`, which falls back to the normal `<leader>pass ` root view when there is
+no current entry yet (first launch).
 
 `QUICK_ACTIONS` maps each event to the **same helper the matching detail row
 uses**:
@@ -376,6 +378,7 @@ uses**:
 | `type-username` | `quickResolve` → `typeValue(data.username)` |
 | `type-password` | `quickResolve` → `typeValue(data.password)` |
 | `autotype` | `autotypeEntry(p)` |
+| `reopen` | `reopenLauncherPanel(":"..p.." ")` |
 
 `copy-password` / `copy-otp` / `type-otp` decrypt through `pass` themselves and
 need nothing more. The username/password ones need the parsed body first:
@@ -567,17 +570,20 @@ Do not regress these without a deliberate reason:
     `noctalia.tr`, every key in every locale file.
 12. **Quick-action IPC** — `onIpc(event, payload)` on the `[[service]]` entry
     (`…:quick-actions`, *not* the launcher provider — those aren't
-    IPC-addressable) runs exactly one detail action with the launcher closed.
+    IPC-addressable) runs exactly one detail action with the launcher closed,
+    or reopens the detail view for `reopen`.
     Events: `copy-password`, `copy-otp`, `type-otp`, `copy-username`,
     `type-username`, `type-password`, `autotype` — each routed to the *same*
     helper as the matching detail row (via `withEntryData` for the ones needing
-    the decrypted body). Target: the `[entryPath]` payload (space-free — CLI
+    the decrypted body); `reopen` calls `reopenLauncherPanel` to open the
+    detail view. Target: the `[entryPath]` payload (space-free — CLI
     splits on whitespace), else the launcher VM's current entry bridged through
     `noctalia.state` (`STATE_CURRENT_ENTRY`; last entry opened / acted on /
     narrowed to a single search hit). Unknown event →
     `notification.quick-action-unknown`; no target →
-    `notification.no-current-entry`. Events are matched in `QUICK_ACTIONS`, not
-    declared in `plugin.toml`.
+    `notification.no-current-entry` for the action events, while `reopen`
+    falls back to the normal `<leader>pass ` root view. Events are matched in
+    `QUICK_ACTIONS`, not declared in `plugin.toml`.
 13. **Search result order** — password files rank above folders unless the
     query typed a folder's *entire* folder-relative path (`pathFullyTyped`), in
     which case that folder leads. `m.group` (0 exact folder / 1 file / 2 other
