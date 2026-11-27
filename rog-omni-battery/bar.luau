@@ -44,6 +44,10 @@ local function refresh()
     noctalia.state.set("refresh", count + 1)
 end
 
+function onClick()
+    refresh()
+end
+
 function onRightClick()
     refresh()
 end
