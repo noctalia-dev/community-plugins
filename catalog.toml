@@ -6356,3 +6356,16 @@ icon = "pointer"
 description = "Switch Umbriel cursor themes and cursor shader effects."
 plugin_api = 56
 tags = ["bar", "panel", "theming", "utility", "umbriel"]
+
+[[plugin]]
+id = "faminec/monkeytype-activity"
+name = "MonkeyType Activity"
+version = "1.0.0"
+updated_at = 1795786927
+added_at = 1795786927
+author = "Faminec"
+license = "MIT"
+icon = "keyboard"
+description = "A native MonkeyType practice calendar for your Noctalia bar."
+plugin_api = 43
+tags = ["bar", "panel", "service", "productivity", "utility", "network"]
