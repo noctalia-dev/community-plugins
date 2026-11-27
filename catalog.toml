@@ -6369,3 +6369,29 @@ icon = "keyboard"
 description = "A native MonkeyType practice calendar for your Noctalia bar."
 plugin_api = 43
 tags = ["bar", "panel", "service", "productivity", "utility", "network"]
+
+[[plugin]]
+id = "alitura/desktop-lyrics"
+name = "Desktop Lyrics"
+version = "1.2.2"
+updated_at = 1795787067
+added_at = 1795787067
+author = "alitura"
+license = "MIT"
+icon = "music"
+description = "Timed lyrics on the desktop, in the bar and in a panel, from .lrc or LRCLIB, placed in the wallpaper's empty areas."
+plugin_api = 51
+tags = ["music", "media", "desktop", "bar", "panel", "service", "shortcut"]
+
+[[plugin]]
+id = "omerfuyar/resurrect"
+name = "Resurrect"
+version = "2.11.3"
+updated_at = 1795787044
+added_at = 1795787044
+author = "omerfuyar"
+license = "MIT"
+icon = "lifebuoy"
+description = "Save your packages, dotfiles, services and Noctalia settings to git, share them between devices, restore them."
+plugin_api = 43
+tags = ["bar", "system", "utility"]
