@@ -56,6 +56,7 @@ A port-specific preset wins over a global preset for the same resolution. At the
 | `refresh_interval` | `int` | `30` seconds | Recovery polling interval, limited to 5–300 seconds; normal output updates are event-driven. |
 | `glyph` | `glyph` | `device-desktop` | Glyph used by this bar-widget instance. |
 | `show_resolution` | `bool` | `true` | Shows the focused connector and resolution beside the bar glyph; disable for icon-only display. |
+| `opaque_background` | `bool` | `false` | Paints the panel on a solid surface instead of following the bar's background opacity. |
 
 ## IPC
 

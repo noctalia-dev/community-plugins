@@ -977,7 +977,16 @@ render = function()
     ui.label({ text = tr("panel.temporary_note"), fontSize = 10, color = "on_surface_variant", flexGrow = 1, maxLines = 2 }),
   }))
 
-  panel.render(ui.column({ flexGrow = 1, gap = 5, align = "stretch" }, children))
+  -- An attached panel takes the bar's background_opacity; opaque_background paints a solid surface
+  -- instead, padded so the content does not sit on the now-visible edge.
+  local opaque = noctalia.getConfig("opaque_background") == true
+  panel.render(ui.column({
+    flexGrow = 1,
+    gap = 5,
+    align = "stretch",
+    fill = opaque and "surface" or nil,
+    padding = opaque and 12 or nil,
+  }, children))
 end
 
 noctalia.state.watch("display_snapshot", function()
