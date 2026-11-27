@@ -1,7 +1,9 @@
 --!nonstrict
 -- Caffeinate Plus service: the only entry that holds state. A port of the
 -- Caffeine Spoon's init.lua. noctalia's built-in caffeine does the actual
--- inhibiting; this service decides when it should be on.
+-- idle inhibiting; this service decides when it should be on. It also holds
+-- the lid-close inhibitor and, while that is on, can turn the internal
+-- display off on lid close and restore the previous brightness on open.
 --
 -- Ownership: caffeine that was already on before we were asked is left alone
 -- by screen lock and plugin disable. Starting a timer is different: it takes
@@ -22,6 +24,17 @@ local STATE_FILE = dataDir and (dataDir .. "/state.json") or nil
 local HEARTBEAT_FILE = dataDir and (dataDir .. "/lid-heartbeat") or nil
 local HEARTBEAT_EVERY_S = 10
 local HEARTBEAT_STALE_S = 30
+
+-- Lid-close display handling. The saved raw brightness lives in the runtime
+-- dir under its own name so another plugin can't clobber it.
+local runtimeDir = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
+local BRIGHTNESS_FILE = runtimeDir .. "/caffeinate-plus-brightness"
+local LID_CLOSED = {
+  "busctl", "get-property", "org.freedesktop.login1", "/org/freedesktop/login1",
+  "org.freedesktop.login1.Manager", "LidClosed",
+}
+local brightnessAvailable = noctalia.commandExists("brightnessctl")
+local lidAvailable = noctalia.commandExists("busctl")
 
 local function shellQuote(s)
   return "'" .. string.gsub(s, "'", "'\\''") .. "'"
@@ -62,6 +75,12 @@ local endsAt = nil -- unix seconds, when a timer is running
 local lidEnabled = noctalia.getConfig("lid_inhibit") == true
 local lidHeld = false
 local lidBusy = false
+local dimEnabled = noctalia.getConfig("dim_on_lid_close") ~= false
+local dimmed = brightnessAvailable and BRIGHTNESS_FILE and noctalia.fileExists(BRIGHTNESS_FILE) or false
+local dimBusy = false -- brightnessctl get/set in flight
+local restoring = false
+local lidClosed = false
+local lidReadPending = false
 local busy = 0 -- caffeine commands in flight
 local graceUntil = 0
 local lastCaffeinePoll = 0
@@ -89,6 +108,10 @@ local function publish()
     remaining = remaining(),
     lidEnabled = lidEnabled,
     lidHeld = lidHeld,
+    dimEnabled = dimEnabled,
+    dimmed = dimmed,
+    lidClosed = lidClosed,
+    dimAvailable = brightnessAvailable and lidAvailable,
     busy = busy > 0,
   })
 end
@@ -127,9 +150,94 @@ local function load()
   end
 end
 
+---- Display off on lid close (only while our session holds the lid)
+
+local function applyOffBrightness()
+  if not brightnessAvailable or not BRIGHTNESS_FILE or dimmed or dimBusy then
+    return
+  end
+  dimBusy = true
+
+  local function setOff()
+    noctalia.runAsync({ "brightnessctl", "set", "0%" }, function(r)
+      dimBusy = false
+      if r.exitCode == 0 then
+        dimmed = true
+        publish()
+      end
+    end)
+  end
+
+  if noctalia.fileExists(BRIGHTNESS_FILE) then
+    setOff()
+    return
+  end
+
+  noctalia.runAsync({ "brightnessctl", "get" }, function(r)
+    local saved = r.exitCode == 0 and string.match(r.stdout or "", "%d+") or nil
+    if not saved then
+      dimBusy = false
+      return
+    end
+    noctalia.writeFile(BRIGHTNESS_FILE, saved)
+    setOff()
+  end)
+end
+
+local function restoreBrightness()
+  if not brightnessAvailable or not BRIGHTNESS_FILE or restoring then
+    return
+  end
+  restoring = true
+
+  local saved = noctalia.readFile(BRIGHTNESS_FILE)
+  if saved then
+    saved = string.match(saved, "%d+")
+  end
+  if not saved then
+    noctalia.removeFile(BRIGHTNESS_FILE)
+    dimmed = false
+    restoring = false
+    publish()
+    return
+  end
+
+  noctalia.runAsync({ "brightnessctl", "set", saved }, function(r)
+    if r.exitCode == 0 then
+      dimmed = false
+    end
+    noctalia.removeFile(BRIGHTNESS_FILE)
+    restoring = false
+    publish()
+  end)
+end
+
+-- Only act when Ignore lid close is on and we own a session: without the
+-- inhibitor the lid would suspend the machine anyway.
+local function refreshDim()
+  if not lidAvailable or lidReadPending then
+    return
+  end
+  lidReadPending = true
+  noctalia.runAsync(LID_CLOSED, function(r)
+    lidReadPending = false
+    local closed = r.exitCode == 0 and string.find(r.stdout or "", "true", 1, true) ~= nil
+    if closed ~= lidClosed then
+      lidClosed = closed
+      publish()
+    end
+    if dimEnabled and lidEnabled and session and closed then
+      applyOffBrightness()
+    elseif dimmed then
+      restoreBrightness()
+    end
+  end)
+end
+
 local function changed()
   save()
   publish()
+  refreshDim()
 end
 
 ---- Lid inhibitor: held while lidEnabled and we own a session
@@ -360,7 +468,7 @@ local function handle(action, arg)
     changed()
   elseif action == "status" then
     noctalia.log(
-      `caffeinate-plus: active={active} owned={owned} claimed={timerClaimed} session={session} remaining={remaining()} lid={lidEnabled}/{lidHeld}`
+      `caffeinate-plus: active={active} owned={owned} claimed={timerClaimed} session={session} remaining={remaining()} lid={lidEnabled}/{lidHeld} dim={dimEnabled}/{dimmed}`
     )
   elseif action ~= nil then
     noctalia.log(`caffeinate-plus: unknown command {action}`)
@@ -377,9 +485,11 @@ function onIpc(event, payload)
   handle(event, payload)
 end
 
--- lid_inhibit is the default; the panel toggle overrides it until the setting
+-- lid_inhibit is a default: the panel toggle overrides it until the setting
 -- itself changes (editing presets must not reset the panel's choice).
+-- dim_on_lid_close has no panel control, so the setting is authoritative.
 local configLid = noctalia.getConfig("lid_inhibit") == true
+local configDim = noctalia.getConfig("dim_on_lid_close") ~= false
 
 function onConfigChanged()
   local fromConfig = noctalia.getConfig("lid_inhibit") == true
@@ -387,6 +497,11 @@ function onConfigChanged()
     configLid = fromConfig
     lidEnabled = fromConfig
     syncLid()
+  end
+  local dimFromConfig = noctalia.getConfig("dim_on_lid_close") ~= false
+  if dimFromConfig ~= configDim then
+    configDim = dimFromConfig
+    dimEnabled = dimFromConfig
   end
   changed()
 end
@@ -434,6 +549,9 @@ function update()
   if not lidBusy and (lidHeld or (lidEnabled and session)) and now - lastLidPoll >= LID_POLL_S then
     refreshLid()
   end
+  if (dimEnabled and lidEnabled and session) or dimmed then
+    refreshDim()
+  end
 end
 
 ---- Startup and teardown
@@ -469,6 +587,18 @@ function onExit(_signal, reason)
     noctalia.removeFile(HEARTBEAT_FILE)
   end
   local cmd = LID_STOP
+  -- Never leave the internal display dark after we're gone. The saved value
+  -- is read now because the fire-and-forget command outlives this VM.
+  if BRIGHTNESS_FILE and noctalia.fileExists(BRIGHTNESS_FILE) then
+    local saved = noctalia.readFile(BRIGHTNESS_FILE)
+    local value = saved and string.match(saved, "%d+")
+    if value then
+      cmd = `brightnessctl set {shellQuote(value)} >/dev/null 2>&1 || true; `
+        .. `rm -f {shellQuote(BRIGHTNESS_FILE)}; ` .. cmd
+    else
+      noctalia.removeFile(BRIGHTNESS_FILE)
+    end
+  end
   -- Disable/uninstall removes the controls, so also release caffeine if we
   -- turned it on, as the Spoon's stop() does. Shutdown leaves it: the shell
   -- that holds it is going away anyway.

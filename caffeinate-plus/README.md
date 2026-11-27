@@ -1,6 +1,6 @@
 # Caffeinate Plus
 
-Keeps your session awake until you turn it off, lock the screen, or a timer runs out. It adds timed presets, a countdown in the bar, and an optional lid-close inhibit to Noctalia's built-in caffeine. A port of the [Caffeine Spoon](https://github.com/jonfriesen/caffeine-spoon) for Hammerspoon.
+Keeps your session awake until you turn it off, lock the screen, or a timer runs out. It adds timed presets, a countdown in the bar, and an optional lid-close inhibit to Noctalia's built-in caffeine. With **Ignore lid close** on, it can also turn the internal display off as soon as the lid closes and restore the previous brightness when it opens. A port of the [Caffeine Spoon](https://github.com/jonfriesen/caffeine-spoon) for Hammerspoon.
 
 ![The Caffeinate Plus panel open below the bar: an on/off switch, preset buttons from 5 minutes to 8 hours, Cancel timer, and an Ignore lid close switch](assets/panel.png)
 
@@ -16,6 +16,7 @@ Keeps your session awake until you turn it off, lock the screen, or a timer runs
 - `noctalia` on `PATH`. The plugin drives the built-in caffeine through `noctalia msg`.
 - `systemd-inhibit` and `grep`, used to read whether caffeine is on.
 - `systemd-run`, `systemctl`, `sh`, `date`, `stat` and `sleep`, used for the optional lid-close inhibit.
+- `busctl`, to read the lid state from logind, and `brightnessctl`, to turn the internal display off and restore its brightness. Both are optional: without them the display-off feature simply does nothing.
 - A session managed by `systemd-logind`, with a working user service manager.
 
 ## Usage
@@ -59,6 +60,7 @@ While it's on, caffeine holds off the whole idle chain: screen-off, lock and sus
 | `scroll_step_minutes` | `int` | `15` | Minutes added or removed per scroll step over the bar widget, 1 to 120. |
 | `cancel_on_lock` | `bool` | `true` | End the session when the screen locks. |
 | `lid_inhibit` | `bool` | `false` | Default for **Ignore lid close**. While a session runs, closing the lid won't suspend. The panel switch overrides it until this setting changes. |
+| `dim_on_lid_close` | `bool` | `true` | Turn the internal display off when the lid closes. Requires **Ignore lid close**; while a session runs, closing the lid sets the brightness to 0 and opening it restores the saved value. This one has no panel control: change it here in Settings. |
 | `show_remaining` (widget) | `bool` | `true` | Show the countdown next to the bar icon. It is always hidden on vertical bars. |
 
 ## IPC
@@ -85,7 +87,8 @@ noctalia msg plugin jonfriesen/caffeinate-plus:service all status         # writ
   - `systemd-inhibit --list` piped to `grep`, every 5 seconds. Noctalia's caffeine holds a logind idle inhibitor named `Caffeine`, and this is how the plugin reads whether it's on.
   - `noctalia msg status`, every 2 seconds while a session runs, to detect a screen lock.
   - With **Ignore lid close** on: `systemd-run` starts the transient user unit `caffeinate-plus-lid.service`, which runs `systemd-inhibit --what=handle-lid-switch --mode=block` around a small `sh` loop. The loop exits, releasing the lid, once the heartbeat file below is more than 30 seconds old. `systemctl --user is-active` checks that unit every 5 seconds while the lid should be held, and the plugin starts it again if it has gone away (for example after a suspend long enough for the heartbeat to go stale). `systemctl --user stop` stops it.
-- **Files written:** in the plugin's data directory, `state.json`, so a session survives a plugin reload, and `lid-heartbeat`, touched every 10 seconds while the lid is held. The service stops the lid unit and removes the heartbeat whenever it exits for anything other than a reload, so even if noctalia crashes or is killed the lid is released within about 30 seconds. `state.json` is deleted when the plugin is disabled or uninstalled.
+  - With the **Turn display off on lid close by default** setting on and **Ignore lid close** active: `busctl get-property` reads logind's `LidClosed` property every second while a session is running, and `brightnessctl get` / `brightnessctl set` save, zero and restore the internal display's raw backlight value. Opening the lid, turning off **Ignore lid close**, ending the session, or the service exiting restores it.
+- **Files written:** in the plugin's data directory, `state.json`, so a session survives a plugin reload, and `lid-heartbeat`, touched every 10 seconds while the lid is held. The service stops the lid unit and removes the heartbeat whenever it exits for anything other than a reload, so even if noctalia crashes or is killed the lid is released within about 30 seconds. `state.json` is deleted when the plugin is disabled or uninstalled. The saved backlight value goes to `$XDG_RUNTIME_DIR/caffeinate-plus-brightness` and is removed once restored; exiting the service also restores it.
 - **Lid-close limits:** the inhibitor doesn't block a suspend you ask for yourself (power menu, `systemctl suspend`), and the plugin doesn't change `logind.conf`. To release it, turn off **Ignore lid close** or end the session; while a session runs, the plugin restarts a unit that was stopped by hand. If noctalia isn't running, `systemctl --user stop caffeinate-plus-lid.service` releases it.
 - **Timer:** it uses a wall-clock end time, so time spent suspended counts toward it.
 - **Compositors:** the plugin doesn't depend on the compositor. It has been tested on Umbriel.

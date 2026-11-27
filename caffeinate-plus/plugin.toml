@@ -15,14 +15,14 @@
 
 id = "jonfriesen/caffeinate-plus"
 name = "Caffeinate Plus"
-version = "0.1.3"
+version = "0.2.1"
 plugin_api = 43
 author = "jonfriesen"
 license = "MIT"
 icon = "coffee"
 description = "Caffeine with timed presets, a countdown, auto-off on screen lock, and an optional lid-close inhibit."
 tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
-dependencies = ["noctalia", "systemd-inhibit", "systemd-run", "systemctl", "grep", "sh", "date", "stat", "sleep"]
+dependencies = ["noctalia", "systemd-inhibit", "systemd-run", "systemctl", "grep", "sh", "date", "stat", "sleep", "brightnessctl", "busctl"]
 
 [[setting]]
 key = "presets_minutes"
@@ -54,6 +54,13 @@ type = "bool"
 label_key = "settings.lid_inhibit.label"
 description_key = "settings.lid_inhibit.description"
 default = false
+
+[[setting]]
+key = "dim_on_lid_close"
+type = "bool"
+label_key = "settings.dim_on_lid_close.label"
+description_key = "settings.dim_on_lid_close.description"
+default = true
 
 [[service]]
 id = "service"
