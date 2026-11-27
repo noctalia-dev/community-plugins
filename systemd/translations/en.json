@@ -19,7 +19,21 @@
     "launch-failed": "Could not run systemctl",
     "state": "{scope} unit is {state}"
   },
+  "panel": {
+    "busy": "Working…",
+    "restart": "Restart",
+    "start": "Start",
+    "stop": "Stop"
+  },
   "settings": {
+    "scope": {
+      "description": "Whether the unit belongs to the system manager or your user manager.",
+      "label": "Scope",
+      "options": {
+        "system": "System",
+        "user": "User"
+      }
+    },
     "scopes": {
       "description": "Which systemd managers to list units from.",
       "label": "Unit scopes",
@@ -29,13 +43,34 @@
         "user": "User only"
       }
     },
+    "show_label": {
+      "description": "Show the unit name next to the state icon, without a .service suffix.",
+      "label": "Show unit name"
+    },
     "system_wrapper": {
       "description": "Command prepended to systemctl for system units, e.g. \"sudo -n\". Leave empty to rely on polkit.",
       "label": "System unit wrapper"
     },
+    "unit": {
+      "description": "The unit to show and control, e.g. sshd.service.",
+      "label": "Unit"
+    },
     "unit_types": {
       "description": "Unit types to list, e.g. service, timer, socket.",
       "label": "Unit types"
+    }
+  },
+  "state": {
+    "not-found": "not found",
+    "unknown": "unknown"
+  },
+  "widget": {
+    "configure-hint": "Middle-click the widget to open its settings and enter a unit name.",
+    "no-unit": "No unit set",
+    "tooltip": {
+      "scope": "Scope",
+      "state": "State",
+      "unit": "Unit"
     }
   }
 }

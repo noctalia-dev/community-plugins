@@ -6,14 +6,14 @@
 -- systemctl asynchronously, so cached rows are published first and replaced when
 -- the fresh listing lands.
 
+local common = require("./common.luau")
+
 local RESULT_LIMIT = 60
 local CACHE_TTL_MS = 10000
 
-local VERB_GLYPH = {
-  start = "player-play",
-  stop = "player-stop",
-  restart = "refresh",
-}
+local VERB_GLYPH = common.VERB_GLYPH
+local systemctlArgv = common.systemctlArgv
+local scopeLabel = common.scopeLabel
 
 local units = {} -- sorted { name, scope, active, sub, description }
 local byName = {} -- name -> units sharing that name (one per scope)
@@ -49,30 +49,6 @@ local function unitTypes()
     types = { "service" }
   end
   return types
-end
-
-local function systemctlArgv(scope, ...)
-  local argv = {}
-  if scope == "system" then
-    local wrapper = noctalia.getConfig("system_wrapper")
-    if type(wrapper) == "string" then
-      for word in string.gmatch(wrapper, "%S+") do
-        table.insert(argv, word)
-      end
-    end
-  end
-  table.insert(argv, "systemctl")
-  if scope == "user" then
-    table.insert(argv, "--user")
-  end
-  for _, arg in { ... } do
-    table.insert(argv, arg)
-  end
-  return argv
-end
-
-local function scopeLabel(scope)
-  return tr("launcher.scope." .. scope)
 end
 
 local function categoryFor(scope)
@@ -211,7 +187,7 @@ local function unitRows(pattern)
 end
 
 local function verbsFor(u)
-  if u.active == "active" or u.active == "activating" or u.active == "reloading" then
+  if common.isRunning(u.active) then
     return { "stop", "restart" }
   end
   return { "start" }
@@ -316,31 +292,10 @@ local function refresh()
   end
 end
 
-local function reportState(verb, scope, name)
-  noctalia.runAsync(systemctlArgv(scope, "is-active", name), function(result)
-    local state = trim(result.stdout)
-    if state == "" then
-      state = "unknown"
-    end
-    noctalia.notify(
-      tr("launcher.action." .. verb, { unit = name }),
-      tr("notify.state", { scope = scopeLabel(scope), state = state })
-    )
-  end)
-end
-
 local function runAction(verb, scope, name)
-  local ok = noctalia.runAsync(systemctlArgv(scope, verb, name), function(result)
+  common.runAction(verb, scope, name, function(_ok)
     lastRefreshMs = 0
-    if result.exitCode == 0 then
-      reportState(verb, scope, name)
-    else
-      noctalia.notifyError(tr("notify.failed", { verb = verb, unit = name }), trim(result.stderr))
-    end
   end)
-  if not ok then
-    noctalia.notifyError(tr("notify.launch-failed"))
-  end
 end
 
 function onQuery(text)
