@@ -1,0 +1,15 @@
+{
+  "settings": {
+    "refresh_seconds": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to poll UPower for peripheral battery updates."
+    }
+  },
+  "panel": {
+    "title": "Peripheral Battery",
+    "refresh": "Refresh",
+    "close": "Close",
+    "empty": "No peripheral batteries detected",
+    "error": "Could not read peripheral batteries"
+  }
+}
