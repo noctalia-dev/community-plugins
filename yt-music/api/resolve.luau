@@ -16,17 +16,63 @@ local get_thumbnail_path = thumbs.get_thumbnail_path
 local types = require("../utils/types.luau")
 local network = require("../utils/network.luau")
 
-local function build_resolve_argv(safe_id: string): { string }
+-- Client choice. Forcing mweb,web (the old setting) now yields only format
+-- 18, a 360p video with AAC audio, never the Opus audio-only formats.
+--
+-- Fast path: the visionos client without cookies. Same Opus 251 as yt-dlp's
+-- default clients, but in one player request (~1.4 s instead of ~4.5 s), with
+-- no JS challenge (no deno needed) and no preroll ad. With cookies, most
+-- tracks carry a 6 s preroll ad, and googlevideo answers 403 to the fresh URL
+-- until ~4 s after it is minted, which is where tracks died on start.
+-- visionos needs the watch page's visitor data (without it YouTube asks to
+-- confirm you're not a bot), so the webpage request is kept.
+--
+-- Its result is accepted only when it is audio-only; otherwise the resolve is
+-- redone at once with the default clients and cookies, and the fast path
+-- rests for FAST_BACKOFF_S. A miss about the video itself (age gate, private,
+-- members-only) does not rest it.
+local FAST_EXTRACTOR_ARGS = "youtube:player_client=visionos;player_skip=configs,initial_data"
+local FAST_BACKOFF_S = 10 * 60
+local fast_disabled_until = 0
+local VIDEO_SPECIFIC_ERRORS = { "confirm your age", "Private video", "members-only", "Join this channel" }
+
+local function video_specific_error(res: any): boolean
+	local err = type(res) == "table" and res.stderr or ""
+	for _, needle in ipairs(VIDEO_SPECIFIC_ERRORS) do
+		if err:find(needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Offline, timed out, or reaped by our own supersede kill: no verdict on the
+-- client.
+local function inconclusive(res: any): boolean
+	if type(res) ~= "table" then
+		return true
+	end
+	local out = res.stdout or ""
+	return out:find("NETGATE=OFFLINE", 1, true) ~= nil or res.timedOut or res.exitCode == 143 or res.exitCode == 137
+end
+
+local function build_resolve_argv(safe_id: string, fast: boolean): { string }
 	local argv = {
 		"yt-dlp",
-		"--extractor-args",
-		"youtube:player_client=mweb,web",
 		"-f",
 		"bestaudio/best",
 		"-g",
+		"--print",
+		"FMT=%(acodec)s|%(vcodec)s",
 		"--no-playlist",
 		"--no-warnings",
 	}
+	if fast then
+		table.insert(argv, "--extractor-args")
+		table.insert(argv, FAST_EXTRACTOR_ARGS)
+		table.insert(argv, "https://www.youtube.com/watch?v=" .. safe_id)
+		return argv
+	end
 	if noctalia.fileExists(COOKIE_PATH) then
 		table.insert(argv, "--cookies")
 		table.insert(argv, COOKIE_PATH)
@@ -46,7 +92,7 @@ local EXPO = {}
 
 local stream_cache = {}
 local resolving_in_flight = {}
-local attempt_resolve: (string, number) -> () -- forward: resolve_stream parks the list, attempt spawns
+local attempt_resolve: (string, number, boolean?) -> () -- forward: resolve_stream parks the list, attempt spawns
 local STREAM_DISK_TTL = 4 * 3600
 
 function EXPO.get_audio_cache_path(video_id: string): string?
@@ -95,25 +141,47 @@ function EXPO.cache_audio(video_id, callback)
 	end
 
 	noctalia.mkdirAll(AUDIO_DIR)
-	local argv = { "yt-dlp", "--extractor-args", "youtube:player_client=mweb,web", "-f", "bestaudio/best", "-o", path }
-	if noctalia.fileExists(COOKIE_PATH) then
-		table.insert(argv, "--cookies")
-		table.insert(argv, COOKIE_PATH)
-	end
-	table.insert(argv, "https://music.youtube.com/watch?v=" .. safe_id)
+	-- Same fast path as streaming (see FAST_EXTRACTOR_ARGS): no preroll ad
+	-- means yt-dlp does not sleep until the ad would have ended. "bestaudio"
+	-- without "/best" so a client offering only muxed video fails instead of
+	-- saving a video; any miss redoes the download with the default clients.
+	local function run(fast: boolean)
+		local argv = { "yt-dlp", "-f", fast and "bestaudio" or "bestaudio/best", "-o", path }
+		if fast then
+			table.insert(argv, "--extractor-args")
+			table.insert(argv, FAST_EXTRACTOR_ARGS)
+			table.insert(argv, "https://www.youtube.com/watch?v=" .. safe_id)
+		else
+			if noctalia.fileExists(COOKIE_PATH) then
+				table.insert(argv, "--cookies")
+				table.insert(argv, COOKIE_PATH)
+			end
+			table.insert(argv, "https://music.youtube.com/watch?v=" .. safe_id)
+		end
 
-	local launched = network.runAsync(argv, function(res)
-		local ok = noctalia.fileExists(path)
-		if not ok and type(res) == "table" then
-			ok = res.exitCode == 0
+		local launched = network.runAsync(argv, function(res)
+			local ok = noctalia.fileExists(path)
+			if not ok and type(res) == "table" then
+				ok = res.exitCode == 0
+			end
+			if not ok and fast and not inconclusive(res) then
+				if not video_specific_error(res) then
+					fast_disabled_until = os.time() + FAST_BACKOFF_S
+				end
+				log("audio download via visionos failed for id=" .. video_id .. "; default clients")
+				noctalia.removeFile(path .. ".part")
+				run(false)
+				return
+			end
+			if callback then
+				callback(ok)
+			end
+		end, 120000)
+		if not launched and callback then
+			callback(false)
 		end
-		if callback then
-			callback(ok)
-		end
-	end, 120000)
-	if not launched and callback then
-		callback(false)
 	end
+	run(os.time() >= fast_disabled_until)
 end
 
 function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
@@ -182,16 +250,51 @@ end
 -- Spawn the yt-dlp fetch for a video_id whose callback list is already parked
 -- in resolving_in_flight. Attempt 0 is the first try; on host spawn refusal
 -- (burst saturation from rapid skips) one delayed retry follows, then fail.
-attempt_resolve = function(video_id, attempt)
+attempt_resolve = function(video_id, attempt, fast)
+	if fast == nil then
+		fast = os.time() >= fast_disabled_until
+	end
 	local safe_id = video_id:gsub("[^%w%-_]", "_")
-	log("resolving stream URL for id=" .. video_id)
-	local argv = build_resolve_argv(safe_id)
+	log("resolving stream URL for id=" .. video_id .. (fast and " (visionos)" or ""))
+	local argv = build_resolve_argv(safe_id, fast)
 	local started_ms = noctalia.nowMs()
 	local launched = network.runAsync(argv, function(res)
 		local elapsed_ms = noctalia.nowMs() - started_ms
 		local out = type(res) == "table" and res.stdout or ""
 		local raw_url = out:match("([^\n\r]+)%s*$")
 		local url = sanitize_str(raw_url)
+		if url:sub(1, 4) ~= "http" then
+			url = ""
+		end
+
+		if fast then
+			local acodec, vcodec = out:match("FMT=([^|\n]*)|([^|\n]*)")
+			local audio_only = acodec and acodec ~= "none" and vcodec == "none"
+			if not (url ~= "" and audio_only) and not inconclusive(res) then
+				local video_specific = video_specific_error(res)
+				if not video_specific then
+					fast_disabled_until = os.time() + FAST_BACKOFF_S
+				end
+				log(
+					"visionos rejected for id="
+						.. video_id
+						.. " ("
+						.. tostring(acodec)
+						.. "/"
+						.. tostring(vcodec)
+						.. ", "
+						.. elapsed_ms
+						.. "ms"
+						.. (video_specific and ", video-specific" or (", off for " .. FAST_BACKOFF_S .. " s"))
+						.. "); default clients"
+				)
+				if resolving_in_flight[video_id] then
+					attempt_resolve(video_id, attempt, false)
+				end
+				return
+			end
+		end
+
 		local callbacks = resolving_in_flight[video_id] or {}
 		resolving_in_flight[video_id] = nil
 
@@ -235,7 +338,7 @@ attempt_resolve = function(video_id, attempt)
 			log("stream resolve launch refused for id=" .. video_id .. ", retrying")
 			local scheduled = noctalia.runAsync("sleep 1.5", function()
 				if resolving_in_flight[video_id] then
-					attempt_resolve(video_id, attempt + 1)
+					attempt_resolve(video_id, attempt + 1, fast)
 				end
 			end)
 			if scheduled then

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.6] - 2026-11-24
+
+### Fixed
+- **Audio-only Opus streams**: the resolver and the offline downloader no longer force `yt-dlp`'s `mweb,web` clients. Those clients now return no audio-only formats, so `bestaudio/best` fell back to format 18, a 360p video with AAC-LC 128 kbps audio (offline downloads saved that MP4 video under an `.opus` name). With `yt-dlp`'s default clients the same request returns Opus format 251 (~120-160 kbps, 48 kHz, audio only).
+- **Faster stream start, no preroll-ad 403s**: streams and downloads first ask `yt-dlp`'s `visionos` client without cookies. It returns the same Opus 251 in one request (~1.4 s instead of ~4.5 s), needs no JS runtime, and gets no preroll ad. With cookies most tracks carry a 6 s ad, and the fresh URL answers 403 until ~4 s after it is issued. Results that are not audio-only fall back to the default clients with cookies at once; the fast path then rests for 10 minutes. Downloads no longer sleep through the ad (~2 s instead of ~8.6 s per track).
+
 ## [0.4.4] - 2026-11-04
 
 ### Added
