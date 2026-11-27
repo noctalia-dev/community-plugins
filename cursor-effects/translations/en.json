@@ -4,6 +4,11 @@
     "theme": "Theme",
     "effect": "Cursor effect",
     "off": "Off",
-    "applied": "Applied"
+    "applied": "Applied",
+    "applying": "Applying…",
+    "size": "Size",
+    "radius": "Effect radius",
+    "no_themes": "No Xcursor themes found",
+    "helper_failed": "Helper failed"
   }
 }
