@@ -3,7 +3,7 @@
 
 id = "dmopp/retro-hdd-led"
 name = "Retro HDD LED"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 31
 author = "dMopp"
 license = "MIT"
@@ -11,6 +11,15 @@ icon = "server"
 description = "A small bar LED that blinks while your disks read or write, like the HDD light on old PC cases."
 tags = ["bar", "indicator", "hardware", "system", "fun"]
 dependencies = []
+
+[[panel]]
+id = "disks"
+entry = "panel.luau"
+width = 400
+height = 370
+placement = "attached"
+position = "auto"
+open_near_click = true
 
 [[widget]]
 id = "led"
