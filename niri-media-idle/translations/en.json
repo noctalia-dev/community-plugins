@@ -25,7 +25,7 @@
       "label": "Start bridge automatically"
     }
   },
-  "title": "Niri Media Idle",
+  "title": "Media Idle",
   "tooltip": {
     "busy": "Checking bridge status. Source: this bridge only.",
     "failed": "Bridge failed; click to restart. Source: this bridge only.",

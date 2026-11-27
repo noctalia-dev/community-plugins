@@ -238,7 +238,8 @@ if os.environ.get("FAKE_SYSTEMD_RUN_NO_CHANGE") != "1":
 
     def test_manifest_settings_and_state_tooltips(self) -> None:
         manifest = tomllib.loads((PLUGIN_DIR / "plugin.toml").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.3.0")
+        self.assertEqual(manifest["version"], "1.5.0")
+        self.assertEqual(manifest["plugin_api"], 48)
         setting = next(
             item for item in manifest["setting"] if item["key"] == "auto_start"
         )
@@ -628,9 +629,9 @@ if os.environ.get("FAKE_SYSTEMD_RUN_NO_CHANGE") != "1":
                 "--quiet",
                 "--collect",
                 f"--unit={UNIT}",
-                "--description=Noctalia Niri Media Idle Bridge",
+                "--description=Noctalia Media Idle Bridge",
                 "--property=PartOf=graphical-session.target",
-                "--property=After=niri.service",
+                "--property=After=graphical-session.target",
                 "--property=Restart=on-failure",
                 "--property=RestartSec=3s",
                 "--property=RuntimeDirectory=noctalia-niri-media-idle",
@@ -679,9 +680,9 @@ if os.environ.get("FAKE_SYSTEMD_RUN_NO_CHANGE") != "1":
                 "--quiet",
                 "--collect",
                 f"--unit={UNIT}",
-                "--description=Noctalia Niri Media Idle Bridge",
+                "--description=Noctalia Media Idle Bridge",
                 "--property=PartOf=graphical-session.target",
-                "--property=After=niri.service",
+                "--property=After=graphical-session.target",
                 "--property=Restart=on-failure",
                 "--property=RestartSec=3s",
                 "--property=RuntimeDirectory=noctalia-niri-media-idle",

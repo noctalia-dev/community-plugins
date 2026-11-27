@@ -144,6 +144,15 @@ def valid_status_record(record: object) -> bool:
     return False
 
 
+def parse_nonneg_int(text: str) -> int | None:
+    if not text.isascii() or not text.isdigit():
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
 def unknown_active_state() -> str:
     result = run_command(
         [
@@ -155,13 +164,8 @@ def unknown_active_state() -> str:
             UNIT,
         ]
     )
-    entered_text = result.stdout.strip()
-    if not entered_text.isascii() or not entered_text.isdigit():
-        return "unknown"
-
-    try:
-        entered_usec = int(entered_text)
-    except ValueError:
+    entered_usec = parse_nonneg_int(result.stdout.strip())
+    if entered_usec is None:
         return "unknown"
     age_usec = time.monotonic_ns() // 1000 - entered_usec
     if 0 <= age_usec < STARTUP_GRACE_USEC:
@@ -187,14 +191,8 @@ def active_protection_state() -> str:
     result = run_command(
         ["systemctl", "--user", "show", "--property=MainPID", "--value", UNIT]
     )
-    main_pid_text = result.stdout.strip()
-    if not main_pid_text.isascii() or not main_pid_text.isdigit():
-        return unknown_active_state()
-    try:
-        main_pid = int(main_pid_text)
-    except ValueError:
-        return unknown_active_state()
-    if main_pid != record["pid"]:
+    main_pid = parse_nonneg_int(result.stdout.strip())
+    if main_pid is None or main_pid != record["pid"]:
         return unknown_active_state()
     if record["state"] == "unknown":
         return unknown_active_state()
@@ -226,9 +224,9 @@ def start_unit() -> tuple[str, str]:
             "--quiet",
             "--collect",
             f"--unit={UNIT}",
-            "--description=Noctalia Niri Media Idle Bridge",
+            "--description=Noctalia Media Idle Bridge",
             "--property=PartOf=graphical-session.target",
-            "--property=After=niri.service",
+            "--property=After=graphical-session.target",
             "--property=Restart=on-failure",
             "--property=RestartSec=3s",
             f"--property=RuntimeDirectory={RUNTIME_DIRECTORY}",
