@@ -1,0 +1,233 @@
+# Desktop Lyrics — timed lyrics drawn on the desktop, in the bar and in a panel.
+
+id = "alitura/desktop-lyrics"
+name = "Desktop Lyrics"
+version = "1.2.2"
+plugin_api = 51
+author = "alitura"
+license = "MIT"
+icon = "music"
+dependencies = ["imagemagick"]
+tags = ["music", "media", "desktop", "bar", "panel", "service", "shortcut"]
+description = "Timed lyrics on the desktop, in the bar and in a panel, from .lrc or LRCLIB, placed in the wallpaper's empty areas."
+
+# ── Settings ────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "enabled"
+type = "bool"
+label_key = "settings.enabled.label"
+description_key = "settings.enabled.description"
+default = true
+
+[[setting]]
+key = "font_size"
+type = "int"
+label_key = "settings.font_size.label"
+description_key = "settings.font_size.description"
+default = 44
+min = 18
+max = 120
+
+[[setting]]
+key = "max_lines"
+type = "int"
+label_key = "settings.max_lines.label"
+description_key = "settings.max_lines.description"
+default = 3
+min = 1
+max = 6
+
+[[setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+default = "karaoke"
+options = [
+  { value = "karaoke", label_key = "settings.display_mode.karaoke" },
+  { value = "line", label_key = "settings.display_mode.line" },
+  { value = "focus", label_key = "settings.display_mode.focus" },
+]
+
+[[setting]]
+key = "text_align"
+type = "select"
+label_key = "settings.text_align.label"
+description_key = "settings.text_align.description"
+default = "center"
+options = [
+  { value = "center", label_key = "settings.text_align.center" },
+  { value = "start", label_key = "settings.text_align.start" },
+  { value = "end", label_key = "settings.text_align.end" },
+]
+
+[[setting]]
+key = "show_next_line"
+type = "bool"
+label_key = "settings.show_next_line.label"
+description_key = "settings.show_next_line.description"
+default = true
+
+[[setting]]
+key = "hide_on_pause"
+type = "bool"
+label_key = "settings.hide_on_pause.label"
+description_key = "settings.hide_on_pause.description"
+default = true
+
+[[setting]]
+key = "show_title"
+type = "bool"
+label_key = "settings.show_title.label"
+description_key = "settings.show_title.description"
+default = false
+
+[[setting]]
+key = "show_progress"
+type = "bool"
+label_key = "settings.show_progress.label"
+description_key = "settings.show_progress.description"
+default = true
+
+[[setting]]
+key = "sync_offset"
+type = "int"
+label_key = "settings.sync_offset.label"
+description_key = "settings.sync_offset.description"
+default = 0
+min = -2000
+max = 2000
+step = 50
+
+[[setting]]
+key = "filter_mode"
+type = "select"
+label_key = "settings.filter_mode.label"
+description_key = "settings.filter_mode.description"
+default = "allowAll"
+options = [
+  { value = "allowAll", label_key = "settings.filter_mode.allow_all" },
+  { value = "whitelist", label_key = "settings.filter_mode.whitelist" },
+]
+
+[[setting]]
+key = "custom_domains"
+type = "string_list"
+label_key = "settings.custom_domains.label"
+description_key = "settings.custom_domains.description"
+default = []
+
+[[setting]]
+key = "disabled_domains"
+type = "string_list"
+label_key = "settings.disabled_domains.label"
+description_key = "settings.disabled_domains.description"
+default = []
+
+[[setting]]
+key = "disabled_players"
+type = "string_list"
+label_key = "settings.disabled_players.label"
+description_key = "settings.disabled_players.description"
+default = []
+
+[[setting]]
+key = "local_lyrics"
+type = "bool"
+label_key = "settings.local_lyrics.label"
+description_key = "settings.local_lyrics.description"
+default = true
+
+[[setting]]
+key = "cache_enabled"
+type = "bool"
+label_key = "settings.cache_enabled.label"
+description_key = "settings.cache_enabled.description"
+default = true
+
+[[setting]]
+key = "overlay_enabled"
+type = "bool"
+label_key = "settings.overlay_enabled.label"
+description_key = "settings.overlay_enabled.description"
+default = false
+
+[[setting]]
+key = "overlay_font_size"
+type = "int"
+label_key = "settings.overlay_font_size.label"
+description_key = "settings.overlay_font_size.description"
+default = 52
+min = 18
+max = 140
+
+[[setting]]
+key = "overlay_margin"
+type = "int"
+label_key = "settings.overlay_margin.label"
+description_key = "settings.overlay_margin.description"
+default = 80
+min = 0
+max = 400
+
+[[setting]]
+key = "wallpaper_aware"
+type = "bool"
+label_key = "settings.wallpaper_aware.label"
+description_key = "settings.wallpaper_aware.description"
+default = true
+
+[[setting]]
+key = "wallpaper_order"
+type = "select"
+label_key = "settings.wallpaper_order.label"
+description_key = "settings.wallpaper_order.description"
+default = "tour"
+options = [
+  { value = "tour", label_key = "settings.wallpaper_order.tour" },
+  { value = "shuffle", label_key = "settings.wallpaper_order.shuffle" },
+]
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Full-screen lyrics overlay (opt-in). The service shows it only while a track
+# with lyrics is playing, and hides it otherwise, so the surface is lazy. It
+# only draws: an empty input region keeps desktop clicks below it, and it never
+# takes keyboard focus.
+#
+# Wallpaper-aware placement writes <pluginDataDir>/wallpaper.rgb (48x27 RGB)
+# with one short-lived magick/convert/ffmpeg run per wallpaper change.
+[[layer]]
+id = "overlay"
+entry = "overlay.luau"
+layer = "bottom"
+anchors = ["top", "bottom", "left", "right"]
+exclusive_zone = -1
+click_through = true
+keyboard = "none"
+
+[[desktop_widget]]
+id = "lyrics"
+entry = "desktop.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "controls"
+entry = "panel.luau"
+width = 460
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
