@@ -59,6 +59,7 @@ body:
         - battery-widget
         - bazaarsearch
         - beeminder
+        - beszel-desktop
         - better-clock
         - binance
         - bitdjinn
@@ -91,6 +92,7 @@ body:
         - crashes
         - currency-exchange
         - cursor
+        - cursor-effects
         - custom-shortcut
         - cutemonitor-ups
         - daily-wallpaper
