@@ -5,7 +5,7 @@
       "label": "Backlight device"
     },
     "colortemp": {
-      "description": "Warm the panel toward ambient. WARNING: forces night light on and rewrites temperature_night.",
+      "description": "Warm the panel toward ambient using Noctalia's runtime night-light temperature override (keeps night light enabled while active).",
       "label": "Adaptive colour temperature"
     },
     "connector": {

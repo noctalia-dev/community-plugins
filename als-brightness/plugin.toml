@@ -1,11 +1,10 @@
 id = "zhangdm/als-brightness"
 name = "ALS Brightness"
-version = "0.8.0"
-# Cumulative API levels. 23 = async-file-read, 24 = direct-argv. Both are used:
-# the service reads sysfs (sync readFile, measured at 0.03 ms, so the async path
-# is not needed here) and launches `noctalia msg` with an argv table rather than
-# a shell string, which is API 24.
-plugin_api = 43
+version = "0.9.0"
+# Cumulative API levels. 24 = direct-argv (`noctalia msg` argv tables),
+# 43 = container-color-roles, 58 = nightlight-temperature
+# (`noctalia.nightlight.setTemperature` and `temperatureOverride` in watch/state).
+plugin_api = 58
 author = "zhangdm"
 license = "MIT"
 icon = "sun"
