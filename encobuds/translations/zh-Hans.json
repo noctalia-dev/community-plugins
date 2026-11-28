@@ -1,0 +1,106 @@
+{
+  "title": "EncoBuds 耳机",
+  "on": "开",
+  "off": "关",
+  "status": {
+    "loading": "正在连接…",
+    "offline": "耳机未连接",
+    "error": "连接出错"
+  },
+  "bar": {
+    "loading": "连接中",
+    "offline": "离线"
+  },
+  "battery": {
+    "left": "左耳",
+    "right": "右耳",
+    "case": "充电盒",
+    "short": {
+      "left": "左",
+      "right": "右",
+      "case": "盒"
+    }
+  },
+  "mode": {
+    "off": "关闭",
+    "anc": "降噪",
+    "trans": "通透",
+    "deep": "深度降噪",
+    "mid": "中度降噪",
+    "light": "轻度降噪",
+    "smart": "智能降噪",
+    "short": {
+      "off": "关闭",
+      "anc": "降噪",
+      "trans": "通透",
+      "deep": "深度",
+      "mid": "中度",
+      "light": "轻度",
+      "smart": "智能"
+    }
+  },
+  "panel": {
+    "mode": "聆听模式",
+    "game": "游戏模式",
+    "game_hint": "降低音频延迟",
+    "volume": "提示音音量",
+    "devices": "耳机记住的设备",
+    "no_devices": "耳机未上报设备",
+    "find": "查找我的耳机",
+    "find_stop": "停止响铃",
+    "cycle": "循环模式",
+    "refresh": "刷新",
+    "settings": "插件设置",
+    "connect": "连接",
+    "disconnect": "断开",
+    "this_pc": "本机",
+    "connected": "已连接",
+    "playing": "播放中",
+    "not_connected": "未连接",
+    "offline_hint": "先在系统蓝牙里连接耳机，插件会自动重试。",
+    "auto": "自动",
+    "standard": "标准",
+    "device_management": "设备管理",
+    "gaming_features": "游戏功能",
+    "earbud_settings": "耳机设置",
+    "other_features": "其他功能",
+    "find_hint": "让耳机响铃，方便寻找",
+    "find_ringing": "正在响铃，点击停止",
+    "about_line": "型号 {product} · 固件 {firmware}",
+    "volume_hint": "耳机自身提示音的音量"
+  },
+  "tooltip": {
+    "mode": "模式",
+    "game": "游戏模式",
+    "model": "型号",
+    "hint": "提示",
+    "scroll": "在状态栏组件上滚动或右键切换聆听模式"
+  },
+  "error": {
+    "command_missing": "无法启动 EncoBuds 命令行工具：插件自带该工具，需要 PATH 中有 python3 3.10 或更新版本。",
+    "timeout": "EncoBuds 命令超时",
+    "failed": "EncoBuds 命令执行失败"
+  },
+  "settings": {
+    "show_mode": {
+      "label": "显示模式",
+      "description": "在状态栏图标旁显示聆听模式。"
+    },
+    "show_battery": {
+      "label": "显示电量",
+      "description": "在状态栏图标旁显示较低一侧耳机的电量。"
+    },
+    "hide_when_offline": {
+      "label": "未连接时隐藏",
+      "description": "耳机未连接时隐藏状态栏组件。"
+    },
+    "scroll_cycle": {
+      "label": "滚动切换",
+      "description": "在状态栏组件上滚动滚轮，按 关闭 → 智能降噪 → 通透 循环。"
+    },
+    "show_product_image": {
+      "label": "显示产品图",
+      "description": "在面板中显示 OPPO Enco Air5 Pro 产品图。"
+    }
+  }
+}
