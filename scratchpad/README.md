@@ -8,12 +8,15 @@ beyond one declared command.
 
 ## Plugin
 
-| Entry | ID |
-|---|---|
-| Plugin | `xinghui/scratchpad` |
-| Panel | `xinghui/scratchpad:pad` |
-| Bar widget | `xinghui/scratchpad:launcher` |
-| Control-center shortcut | `xinghui/scratchpad:open` |
+| Field | Value |
+| --- | --- |
+| ID | `xinghui/scratchpad` |
+| Entries | Bar widget: `launcher`; panel: `pad`; shortcut: `open` |
+
+## Requirements
+
+- `xdg-open` — only used by the data-folder button in the editor footer; declared in
+  `dependencies` in plugin.toml.
 
 ## Usage
 
@@ -65,11 +68,6 @@ $P confirm-delete    # two-step delete: first call arms, second deletes
 
 The `delete` event executes immediately (a typed command is explicit intent),
 while the UI button and `confirm-delete` use the two-step confirmation.
-
-## Requirements
-
-- `xdg-open` — only used by the "Open data folder" button; declared in
-  `dependencies` in plugin.toml.
 
 ## Notes
 
