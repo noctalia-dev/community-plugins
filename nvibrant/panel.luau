@@ -23,7 +23,8 @@ local function draw()
         min = 0, max = core.MAX, step = 1, value = state.level, flexGrow = 1,
         onChange = function(v)
           state.level = math.floor(tonumber(v) or 0)
-          if core.appliedOn() then core.apply(state.level) end
+          -- follows the preference: a slider dragged to 0 must not turn live preview off for good
+          if core.load().enabled then core.apply(state.level) end
         end,
         onDragEnd = function()
           -- the level is a preference: keep it even while off, so switching on uses it

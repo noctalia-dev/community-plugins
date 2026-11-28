@@ -7,7 +7,7 @@ license = "MIT"
 dependencies = ["bash", "awk", "niri", "nvibrant"]
 tags = ["bar", "panel", "system", "gaming", "hardware", "niri"]
 icon = "contrast"
-description = "Screen saturation with a bar button and slider. NVIDIA: needs nvibrant. AMD/Intel: needs a niri build with the unmerged color-matrix action (niri-wm/niri#4543); stock niri has no fallback."
+description = "Screen saturation. NVIDIA: nvibrant. AMD/Intel: needs a niri build with the unmerged color-matrix action."
 
 [[widget]]
 id = "bar"

@@ -66,19 +66,23 @@ local function run(value, done)
   running = true
   local started = noctalia.runAsync({ "bash", noctalia.pluginDir() .. "/apply.sh", tostring(value) }, function(result)
     running = false
+    local ok = result.exitCode == 0
+    if ok then
+      noctalia.state.set("applied", noctalia.json.encode({ on = value > 0, level = value }))
+    elseif result.exitCode == 7 then
+      -- some outputs took the change and some did not: say so instead of showing a clean on/off
+      noctalia.state.set("applied", noctalia.json.encode({ on = value > 0, level = value, partial = true }))
+      noctalia.notifyError(noctalia.tr("toast.partial.title"), noctalia.tr("toast.partial.body"))
+    else
+      report(result.exitCode)
+    end
+    -- the finished request reports first; only then does the queued one start
+    if done then done(ok) end
     if queued ~= nil then
       local q = queued
       queued = nil
       run(q.value, q.done)
-      return
     end
-    local ok = result.exitCode == 0
-    if ok then
-      noctalia.state.set("applied", noctalia.json.encode({ on = value > 0, level = value }))
-    else
-      report(result.exitCode)
-    end
-    if done then done(ok) end
   end)
   if not started then
     running = false

@@ -15,6 +15,10 @@
     "failed": {
       "title": "NVibrant failed",
       "body": "nvibrant returned an error. Check that nvibrant works from a terminal."
+    },
+    "partial": {
+      "title": "NVibrant: partly applied",
+      "body": "Some outputs did not take the change. Check which outputs support it (see the plugin README)."
     }
   }
 }
