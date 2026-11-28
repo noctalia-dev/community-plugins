@@ -1,0 +1,42 @@
+{
+  "settings": {
+    "poll_seconds": {
+      "label": "Poll Interval",
+      "description": "Seconds between battery queries"
+    },
+    "low_threshold": {
+      "label": "Low Battery Threshold",
+      "description": "Percentage at or below which the low battery color is used"
+    },
+    "show_percent": {
+      "label": "Show Percentage"
+    },
+    "hide_when_missing": {
+      "label": "Hide When No Mouse",
+      "description": "Hide the widget when no LAMZU-protocol device is plugged in"
+    },
+    "normal_color": {
+      "label": "Normal Color"
+    },
+    "charging_color": {
+      "label": "Charging Color"
+    },
+    "low_color": {
+      "label": "Low Battery Color"
+    }
+  },
+  "ui": {
+    "asleep": "Mouse asleep or out of range",
+    "asleep-last-known": "Mouse asleep, showing last known level",
+    "charging": "(charging)",
+    "helper-failed": "Battery helper failed to run",
+    "hours-ago": "{n} h ago",
+    "just-now": "just now",
+    "minutes-ago": "{n} min ago",
+    "no-device": "No LAMZU-protocol mouse found",
+    "no-permission": "No permission to read the mouse; install the udev rule from the plugin README",
+    "no-python": "python3 not found",
+    "query-failed": "The mouse did not answer the battery query",
+    "updated": "Updated {when}"
+  }
+}
