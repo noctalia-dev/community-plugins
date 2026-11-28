@@ -1,0 +1,106 @@
+{
+  "title": "EncoBuds",
+  "on": "On",
+  "off": "Off",
+  "status": {
+    "loading": "Connecting…",
+    "offline": "Earbuds not connected",
+    "error": "Connection error"
+  },
+  "bar": {
+    "loading": "…",
+    "offline": "Offline"
+  },
+  "battery": {
+    "left": "Left",
+    "right": "Right",
+    "case": "Case",
+    "short": {
+      "left": "L",
+      "right": "R",
+      "case": "Case"
+    }
+  },
+  "mode": {
+    "off": "Off",
+    "anc": "Noise cancellation",
+    "trans": "Transparency",
+    "deep": "Deep ANC",
+    "mid": "Mid ANC",
+    "light": "Light ANC",
+    "smart": "Smart ANC",
+    "short": {
+      "off": "Off",
+      "anc": "ANC",
+      "trans": "Trans",
+      "deep": "Deep",
+      "mid": "Mid",
+      "light": "Light",
+      "smart": "Smart"
+    }
+  },
+  "panel": {
+    "mode": "Listening mode",
+    "game": "Game mode",
+    "game_hint": "Lower audio latency",
+    "volume": "Prompt volume",
+    "devices": "Remembered devices",
+    "no_devices": "No devices reported",
+    "find": "Find my earbuds",
+    "find_stop": "Stop ringing",
+    "cycle": "Cycle mode",
+    "refresh": "Refresh",
+    "settings": "Plugin settings",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "this_pc": "This PC",
+    "connected": "Connected",
+    "playing": "Playing",
+    "not_connected": "Not connected",
+    "offline_hint": "Connect the earbuds in the system Bluetooth settings; the plugin retries automatically.",
+    "auto": "Auto",
+    "standard": "Standard",
+    "device_management": "Device management",
+    "gaming_features": "Gaming features",
+    "earbud_settings": "Earbud settings",
+    "other_features": "Other features",
+    "find_hint": "Ring the earbuds to locate them",
+    "find_ringing": "Ringing — click to stop",
+    "about_line": "Model {product} · Firmware {firmware}",
+    "volume_hint": "Volume of the earbuds' own prompts"
+  },
+  "tooltip": {
+    "mode": "Mode",
+    "game": "Game mode",
+    "model": "Model",
+    "hint": "Hint",
+    "scroll": "Scroll or right-click to cycle the listening mode"
+  },
+  "error": {
+    "command_missing": "The EncoBuds CLI could not be started. It ships with the plugin and needs python3 3.10 or newer on PATH.",
+    "timeout": "EncoBuds CLI timed out",
+    "failed": "EncoBuds CLI failed"
+  },
+  "settings": {
+    "show_mode": {
+      "label": "Show mode",
+      "description": "Show the listening mode next to the bar glyph."
+    },
+    "show_battery": {
+      "label": "Show battery",
+      "description": "Show the lowest earbud battery next to the bar glyph."
+    },
+    "hide_when_offline": {
+      "label": "Hide when offline",
+      "description": "Hide the bar widget while the earbuds are not connected."
+    },
+    "scroll_cycle": {
+      "label": "Scroll to cycle",
+      "description": "Scroll over the bar widget to cycle off → smart ANC → transparency."
+    },
+    "show_product_image": {
+      "label": "Show product image",
+      "description": "Show the OPPO Enco Air5 Pro render in the panel."
+    }
+  }
+}
