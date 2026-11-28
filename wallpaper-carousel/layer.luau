@@ -860,6 +860,10 @@ end
 
 function onFrameTick(deltaMs)
   local dt = tonumber(deltaMs) or 16
+  -- A frame delivered after a pause carries the whole pause as its delta, which
+  -- would finish an animation in one step; cap it so a stall slows the motion
+  -- instead of skipping it.
+  if dt > 64 then dt = 64 end
   local dirty = false
   local hideNow = false
 
@@ -893,12 +897,6 @@ function onFrameTick(deltaMs)
 
   if dirty then render() end
   if hideNow then finishHide() end
-  if not motion and not anim then
-    -- Nothing will look different on the next frame: stop the frame callback
-    -- instead of running the script at the compositor's refresh rate while the
-    -- carousel sits idle.
-    layer.setNeedsFrameTick(false)
-  end
 end
 
 local lastPosition = noctalia.state.get("carousel.position")
