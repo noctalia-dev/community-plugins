@@ -1,0 +1,74 @@
+# Battery level of LAMZU-protocol wireless mice (LAMZU, Attack Shark R5 Ultra,
+# ...) in the bar. bar.luau runs the bundled lamzu-battery.py, which sends a
+# read-only battery query over hidraw and prints JSON.
+
+id = "windowsoffender/lamzu-mouse-battery"
+name = "LAMZU Mouse Battery"
+version = "1.0.0"
+plugin_api = 26
+author = "windowsoffender"
+license = "MIT"
+dependencies = ["python3"]
+tags = ["hardware", "system"]
+icon = "mouse"
+description = "Battery level and charging state of LAMZU-protocol wireless mice (LAMZU, Attack Shark R5 Ultra) in the bar."
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "poll_seconds"
+  type = "int"
+  label_key = "settings.poll_seconds.label"
+  description_key = "settings.poll_seconds.description"
+  default = 60
+  min = 10
+  max = 600
+  step = 10
+
+  [[widget.setting]]
+  key = "low_threshold"
+  type = "int"
+  label_key = "settings.low_threshold.label"
+  description_key = "settings.low_threshold.description"
+  default = 20
+  min = 0
+  max = 100
+  step = 5
+
+  [[widget.setting]]
+  key = "show_percent"
+  type = "bool"
+  label_key = "settings.show_percent.label"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_when_missing"
+  type = "bool"
+  label_key = "settings.hide_when_missing.label"
+  description_key = "settings.hide_when_missing.description"
+  default = false
+
+  # Not called `color`: on a bar widget that key is shared with Noctalia's own
+  # per-widget color setting.
+  [[widget.setting]]
+  key = "normal_color"
+  type = "color"
+  label_key = "settings.normal_color.label"
+  default = "secondary"
+  advanced = true
+
+  [[widget.setting]]
+  key = "charging_color"
+  type = "color"
+  label_key = "settings.charging_color.label"
+  default = "primary"
+  advanced = true
+
+  [[widget.setting]]
+  key = "low_color"
+  type = "color"
+  label_key = "settings.low_color.label"
+  default = "error"
+  advanced = true

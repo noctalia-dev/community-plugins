@@ -1,0 +1,4 @@
+# Let the logged-in user read LAMZU-protocol mice/receivers over hidraw
+# (used by the LAMZU Mouse Battery Noctalia plugin).
+KERNEL=="hidraw*", ATTRS{idVendor}=="373e", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="37b0", TAG+="uaccess"
