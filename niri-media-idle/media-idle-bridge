@@ -15,9 +15,8 @@ Inhibitors held while video plays:
   1. logind `Inhibit("idle")` via `systemd-inhibit`.  Noctalia's idle behaviours consult
      logind's BlockInhibited (ScreenSaverService::applyLogindBlockInhibited ->
      IdleManager::setScreenSaverInhibitLocks), so this is what suppresses them.
-  2. niri's `org.freedesktop.ScreenSaver.Inhibit` on the session bus.  niri ORs that into the
-     Wayland idle-notify state (Niri::refresh_idle_inhibit, src/niri.rs:4143), so this also
-     covers any Wayland idle-notify consumer.
+  2. `org.freedesktop.ScreenSaver.Inhibit` on the session bus (served by Noctalia's
+     ScreenSaverService or the compositor, e.g. niri), covering Wayland idle-notify consumers.
 
 Why a custom bridge instead of `noctalia msg caffeine-enable`: caffeine is a user-facing toggle
 (shared state with the control-centre shortcut) and Noctalia's IdleInhibitor prefers logind,
@@ -721,9 +720,9 @@ class SystemInhibitors:
             cookie = dbus.Interface(obj, SCREENSAVER_NAME).Inhibit("media-idle-bridge", reason)
             self.inhibit_cookie = int(cookie)
         except dbus.DBusException as err:
-            log.warning("niri ScreenSaver.Inhibit unavailable: %s", err)
+            log.warning("org.freedesktop.ScreenSaver.Inhibit unavailable: %s", err)
             return False
-        log.debug("niri ScreenSaver.Inhibit cookie=%s", self.inhibit_cookie)
+        log.debug("org.freedesktop.ScreenSaver.Inhibit cookie=%s", self.inhibit_cookie)
         return True
 
     def _release_systemd_block(self, what: str) -> None:

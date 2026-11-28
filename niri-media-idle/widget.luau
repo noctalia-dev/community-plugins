@@ -10,45 +10,31 @@ local status = noctalia.state.get(STATUS_KEY) or {
 }
 local requestId = 0
 
+local PROTECTION_VIEW = {
+  loading = { glyph = "loader-2", color = "primary", tooltip = "tooltip.loading" },
+  protected = { glyph = "player-stop", color = "tertiary", tooltip = "tooltip.protected" },
+  normal = { glyph = "player-stop", color = "tertiary", tooltip = "tooltip.normal" },
+  music_sleep = { glyph = "player-stop", color = "tertiary", tooltip = "tooltip.music_sleep" },
+  unknown = { glyph = "player-stop", color = "tertiary", tooltip = "tooltip.protection_unknown" },
+  incomplete = { glyph = "alert-circle", color = "error", tooltip = "tooltip.incomplete" },
+  music_sleep_incomplete = { glyph = "alert-circle", color = "error", tooltip = "tooltip.music_sleep_incomplete" },
+}
+local FALLBACK_PROTECTION_VIEW = {
+  glyph = "alert-circle",
+  color = "error",
+  tooltip = "tooltip.unknown",
+}
+
 local function render()
   if status.busy == true then
     barWidget.setGlyph("loader-2")
     barWidget.setGlyphColor("primary")
     barWidget.setTooltip(noctalia.tr("tooltip.busy"))
   elseif status.unitState == "active" then
-    if status.protectionState == "loading" then
-      barWidget.setGlyph("loader-2")
-      barWidget.setGlyphColor("primary")
-      barWidget.setTooltip(noctalia.tr("tooltip.loading"))
-    elseif status.protectionState == "protected" then
-      barWidget.setGlyph("player-stop")
-      barWidget.setGlyphColor("tertiary")
-      barWidget.setTooltip(noctalia.tr("tooltip.protected"))
-    elseif status.protectionState == "normal" then
-      barWidget.setGlyph("player-stop")
-      barWidget.setGlyphColor("tertiary")
-      barWidget.setTooltip(noctalia.tr("tooltip.normal"))
-    elseif status.protectionState == "music_sleep" then
-      barWidget.setGlyph("player-stop")
-      barWidget.setGlyphColor("tertiary")
-      barWidget.setTooltip(noctalia.tr("tooltip.music_sleep"))
-    elseif status.protectionState == "unknown" then
-      barWidget.setGlyph("player-stop")
-      barWidget.setGlyphColor("tertiary")
-      barWidget.setTooltip(noctalia.tr("tooltip.protection_unknown"))
-    elseif status.protectionState == "incomplete" then
-      barWidget.setGlyph("alert-circle")
-      barWidget.setGlyphColor("error")
-      barWidget.setTooltip(noctalia.tr("tooltip.incomplete"))
-    elseif status.protectionState == "music_sleep_incomplete" then
-      barWidget.setGlyph("alert-circle")
-      barWidget.setGlyphColor("error")
-      barWidget.setTooltip(noctalia.tr("tooltip.music_sleep_incomplete"))
-    else
-      barWidget.setGlyph("alert-circle")
-      barWidget.setGlyphColor("error")
-      barWidget.setTooltip(noctalia.tr("tooltip.unknown"))
-    end
+    local view = PROTECTION_VIEW[status.protectionState] or FALLBACK_PROTECTION_VIEW
+    barWidget.setGlyph(view.glyph)
+    barWidget.setGlyphColor(view.color)
+    barWidget.setTooltip(noctalia.tr(view.tooltip))
   elseif status.unitState == "failed" then
     barWidget.setGlyph("alert-circle")
     barWidget.setGlyphColor("error")

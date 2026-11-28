@@ -2,6 +2,7 @@
 local stateValues = {}
 local stateWatchers = {}
 local runActions = {}
+local detachedCalls = {}
 local unitState = "inactive"
 local protectionState = "unknown"
 local nextStatusState = nil
@@ -36,6 +37,14 @@ noctalia = {
     return "/fake-plugin"
   end,
   runAsync = function(argv, callback, _timeout)
+    if callback == nil then
+      table.insert(detachedCalls, argv)
+      if argv[1] == "systemctl" and argv[2] == "--user" and argv[3] == "stop" then
+        unitState = "inactive"
+        protectionState = "unknown"
+      end
+      return true
+    end
     local action = argv[3]
     table.insert(runActions, action)
     if action == "start" and deferNextStart then
@@ -228,3 +237,29 @@ assert(widgetOutput.glyph == "player-stop",
   "active bridge with unconfirmed protection should keep the active icon")
 assert(widgetOutput.color == "tertiary",
   "active bridge with unconfirmed protection should keep the active color")
+
+assert(type(onResume) == "function", "service must define onResume")
+local resumeActionCount = #runActions
+nextStatusState = "protected"
+onResume()
+assert(#runActions == resumeActionCount + 1 and lastRunAction() == "status",
+  "onResume must refresh status when idle")
+assert(stateValues["niri_media_idle_status"].protectionState == "protected",
+  "onResume must publish refreshed protection state")
+
+assert(type(onExit) == "function", "service must define onExit")
+local detachedBeforeReload = #detachedCalls
+onExit(0, "reload")
+assert(#detachedCalls == detachedBeforeReload,
+  "onExit with reload must leave the bridge unit running")
+
+for _, reason in ipairs({ "disable", "uninstall", "shutdown" }) do
+  local countBefore = #detachedCalls
+  onExit(0, reason)
+  assert(#detachedCalls == countBefore + 1,
+    "onExit(" .. reason .. ") must issue a detached stop without a callback")
+  local call = detachedCalls[#detachedCalls]
+  assert(call[1] == "systemctl" and call[2] == "--user" and call[3] == "stop"
+    and call[4] == "noctalia-niri-media-idle.service",
+    "onExit(" .. reason .. ") must stop the unit directly via systemctl")
+end

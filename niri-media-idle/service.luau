@@ -2,6 +2,7 @@
 
 local STATUS_KEY = "niri_media_idle_status"
 local COMMAND_KEY = "niri_media_idle_command"
+local UNIT = "noctalia-niri-media-idle.service"
 local CONTROL_TIMEOUT_MS = 65000
 local UNIT_STATES = { active = true, inactive = true, failed = true }
 local PROTECTION_STATES = {
@@ -178,17 +179,21 @@ local function toggle()
   end
 end
 
-noctalia.state.watch(COMMAND_KEY, function(command)
-  if type(command) ~= "table" then return end
-  if command.action == "toggle" then
+local function dispatchAction(action)
+  if action == "toggle" then
     toggle()
-  elseif command.action == "start" then
+  elseif action == "start" then
     runControl("start", true, true)
-  elseif command.action == "stop" then
+  elseif action == "stop" then
     runControl("stop", true, true)
-  elseif command.action == "refresh" or command.action == "status" then
+  elseif action == "refresh" or action == "status" then
     refresh()
   end
+end
+
+noctalia.state.watch(COMMAND_KEY, function(command)
+  if type(command) ~= "table" then return end
+  dispatchAction(command.action)
 end)
 
 noctalia.setUpdateInterval(5000)
@@ -203,34 +208,14 @@ function onConfigChanged()
 end
 
 function onIpc(event, _payload)
-  if event == "toggle" then
-    toggle()
-  elseif event == "start" then
-    runControl("start", true, true)
-  elseif event == "stop" then
-    runControl("stop", true, true)
-  elseif event == "refresh" or event == "status" then
-    refresh()
-  end
+  dispatchAction(event)
+end
+
+function onResume()
+  if not status.busy then refresh() end
 end
 
 function onExit(_signal, reason)
   if reason == "reload" then return end
-  if not controlPath then
-    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("error.plugin_directory"))
-    return
-  end
-
-  local started = noctalia.runAsync(
-    { "python3", controlPath, "stop" },
-    function(result)
-      if type(result) ~= "table" or result.exitCode ~= 0 then
-        noctalia.notifyError(noctalia.tr("title"), detailFrom(result))
-      end
-    end,
-    CONTROL_TIMEOUT_MS
-  )
-  if not started then
-    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("error.command_not_started"))
-  end
+  noctalia.runAsync({ "systemctl", "--user", "stop", UNIT })
 end
