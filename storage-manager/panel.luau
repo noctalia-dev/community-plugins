@@ -56,14 +56,22 @@ local function say(text, isError)
   message = { text = text, error = isError == true }
 end
 
--- Callbacks never draw. Every callback has a small CPU budget, and one that
--- runs over is aborted together with everything it asked the shell to do
--- (reopening the panel, say). They mark the panel dirty instead, and update()
--- draws at most once per tick.
+-- Every callback has a small CPU budget, and one that runs over is aborted
+-- together with everything it asked the shell to do (reopening the panel,
+-- say). So a callback that has just asked for the panel back never draws:
+-- it marks the panel dirty, and onOpen / update() draw it. Everything else
+-- (tab clicks, buttons, data arriving) draws right away, because update()
+-- ticks are not guaranteed to reach an open panel.
 local dirty = false
+local holdDrawUntil = 0
 
 local function rerender()
-  dirty = true
+  if isOpen and noctalia.nowMs() >= holdDrawUntil then
+    dirty = false
+    render()
+  else
+    dirty = true
+  end
 end
 
 noctalia.setUpdateInterval(60)
@@ -247,6 +255,9 @@ local function comeBack()
   if steppedAside then
     steppedAside = false
     if not isOpen then
+      -- the rest of this callback must not draw, or an overrun would take
+      -- the reopen request down with it
+      holdDrawUntil = noctalia.nowMs() + 500
       noctalia.togglePanel(common.PANEL)
     end
   end

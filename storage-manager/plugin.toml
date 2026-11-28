@@ -8,7 +8,7 @@
 
 id = "shadowshard4080/storage-manager"
 name = "Storage Manager"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 56
 author = "shadowshard4080"
 license = "MIT"
