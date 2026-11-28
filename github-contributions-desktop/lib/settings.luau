@@ -42,6 +42,16 @@ function Settings.wrapBlocks(value)
   return 1
 end
 
+-- Which part of the year the calendar shows: "full" (the whole year, the
+-- default) or "last6" (only the last 6 months). Anything else falls back
+-- to "full".
+function Settings.period(value)
+  if value == "last6" then
+    return "last6"
+  end
+  return "full"
+end
+
 -- The year the calendar covers: "last12" (trailing 12 months, the default)
 -- or a four-digit calendar year. Anything else falls back to "last12".
 function Settings.selectedYear(value)

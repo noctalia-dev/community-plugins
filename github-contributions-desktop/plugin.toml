@@ -1,6 +1,6 @@
 id = "darulqutni-q/github-contributions-desktop"
 name = "GitHub Contributions"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 43
 author = "DarulQutni-Q"
 license = "MIT"
@@ -88,4 +88,15 @@ entry = "desktop.luau"
     { value = "2", label_key = "settings.wrap.options.two" },
     { value = "3", label_key = "settings.wrap.options.three" },
     { value = "4", label_key = "settings.wrap.options.four" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "period"
+  type = "select"
+  label_key = "settings.period.label"
+  description_key = "settings.period.description"
+  default = "full"
+  options = [
+    { value = "full", label_key = "settings.period.options.full" },
+    { value = "last6", label_key = "settings.period.options.last6" },
   ]
