@@ -1,0 +1,89 @@
+# Storage Manager: see what fills your drives, check their health, and free up
+# space. All disk work is done by helper/storagetool.py (Python, no extra
+# modules); the Luau entries only ask it for small pieces and draw them.
+#
+# - panel "manager": overview, usage map, cleanup and drives, in four tabs
+# - service "monitor": low-space warnings and emptying old trash
+# - widget "indicator": a bar glyph with free space that opens the panel
+
+id = "shadowshard4080/storage-manager"
+name = "Storage Manager"
+version = "1.0.2"
+plugin_api = 56
+author = "shadowshard4080"
+license = "MIT"
+icon = "database"
+description = "See what fills your drives, check their health, and free up space from caches, packages and old files."
+tags = ["panel", "bar", "service", "system", "hardware", "utility", "arch"]
+dependencies = ["python3", "lsblk", "gio", "udisksctl", "smartctl", "pkexec", "journalctl", "systemctl", "pacman", "flatpak", "nice", "kill", "dbus-send"]
+
+[[setting]]
+key = "low_space_warning"
+type = "bool"
+label_key = "settings.low_space_warning.label"
+description_key = "settings.low_space_warning.description"
+default = true
+
+[[setting]]
+key = "low_space_percent"
+type = "int"
+label_key = "settings.low_space_percent.label"
+description_key = "settings.low_space_percent.description"
+default = 10
+min = 1
+max = 50
+visible_when = { key = "low_space_warning", values = ["true"] }
+
+[[setting]]
+key = "empty_trash_after"
+type = "select"
+label_key = "settings.empty_trash_after.label"
+description_key = "settings.empty_trash_after.description"
+default = "never"
+
+  [[setting.options]]
+  value = "never"
+  label_key = "settings.empty_trash_after.options.never"
+
+  [[setting.options]]
+  value = "7"
+  label_key = "settings.empty_trash_after.options.week"
+
+  [[setting.options]]
+  value = "30"
+  label_key = "settings.empty_trash_after.options.month"
+
+  [[setting.options]]
+  value = "90"
+  label_key = "settings.empty_trash_after.options.quarter"
+
+[[service]]
+id = "monitor"
+entry = "service.luau"
+
+[[widget]]
+id = "indicator"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_free"
+  type = "bool"
+  label_key = "settings.show_free.label"
+  description_key = "settings.show_free.description"
+  default = true
+
+  [[widget.setting]]
+  key = "mount"
+  type = "string"
+  label_key = "settings.mount.label"
+  description_key = "settings.mount.description"
+  default = "/"
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 660
+height = 760
+placement = "floating"
+position = "center"
+open_near_click = false
