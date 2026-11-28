@@ -1,0 +1,127 @@
+# EncoBuds — OPPO / OnePlus / realme Enco earbuds for Noctalia.
+#
+# The Bluetooth protocol lives in the EncoBuds CLI (default:
+# ~/.agent/EncoBuds/encobuds). This plugin is a thin, event-driven front end:
+# one service polls `encobuds --json status` and publishes a snapshot, while the bar
+# widget and panel render that snapshot and send commands back through
+# noctalia.state. No UI entry touches Bluetooth directly.
+
+id = "imfiiish/encobuds"
+name = "EncoBuds"
+version = "1.0.0"
+plugin_api = 43
+author = "imfiiish"
+license = "MIT"
+icon = "headphones"
+description = "Battery, listening mode, game mode, find, and dual-device control for OPPO/OnePlus/realme Enco earbuds."
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["python3", "bluez-utils", "encobuds"]
+
+# ── Plugin settings (shared by service, bar widget and panel) ────────────────
+
+[[setting]]
+key = "command"
+type = "string"
+label_key = "settings.command.label"
+description_key = "settings.command.description"
+default = ""
+
+[[setting]]
+key = "mac"
+type = "string"
+label_key = "settings.mac.label"
+description_key = "settings.mac.description"
+default = ""
+
+[[setting]]
+key = "channel"
+type = "int"
+label_key = "settings.channel.label"
+description_key = "settings.channel.description"
+default = 0
+min = 0
+max = 30
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh.label"
+description_key = "settings.refresh.description"
+default = 30
+min = 5
+max = 300
+
+[[setting]]
+key = "show_devices"
+type = "bool"
+label_key = "settings.show_devices.label"
+description_key = "settings.show_devices.description"
+default = true
+
+[[setting]]
+key = "device_name"
+type = "string"
+label_key = "settings.device_name.label"
+description_key = "settings.device_name.description"
+default = ""
+
+[[setting]]
+key = "show_product_image"
+type = "bool"
+label_key = "settings.show_product_image.label"
+description_key = "settings.show_product_image.description"
+default = true
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  # Default gestures. Users can override or clear them per widget instance.
+  [widget.actions]
+  left = "panel-toggle imfiiish/encobuds:panel"
+  right = "plugin imfiiish/encobuds:service all cycle"
+
+  [[widget.setting]]
+  key = "show_mode"
+  type = "bool"
+  label_key = "settings.show_mode.label"
+  description_key = "settings.show_mode.description"
+  default = true
+
+  [[widget.setting]]
+  key = "show_battery"
+  type = "bool"
+  label_key = "settings.show_battery.label"
+  description_key = "settings.show_battery.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_when_offline"
+  type = "bool"
+  label_key = "settings.hide_when_offline.label"
+  description_key = "settings.hide_when_offline.description"
+  default = false
+
+  [[widget.setting]]
+  key = "scroll_cycle"
+  type = "bool"
+  label_key = "settings.scroll_cycle.label"
+  description_key = "settings.scroll_cycle.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = "content"
+max_height = 900
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
