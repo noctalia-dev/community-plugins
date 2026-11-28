@@ -7,7 +7,7 @@ local SPAN = 6
 local FADE_W = 420
 local CENTER_SCALE = 1.12
 -- The visual carousel lives in this layer, while the panel position setting
--- ("keys • Позиция") belongs to the invisible keyboard panel. Map the panel
+-- ("keys • Position") belongs to the invisible keyboard panel. Map the panel
 -- position token onto layer-shell anchors: an axis with no anchor is centered
 -- by the compositor, so "top_center" is just the "top" anchor.
 local POSITION_ANCHORS = {
@@ -119,10 +119,8 @@ local currentPath = ""
 local lastDir = ""
 local scanning = false
 local isOpen = false
-local lastScroll = 0
 local cacheDir = nil
 local thumbBin = nil
-local thumbPending = {}
 
 -- Show/hide animation: the whole surface slides in from the screen edge it is
 -- anchored to while fading in, and slides back out the same edge on close. A
@@ -241,7 +239,11 @@ local function initCache()
     base = home .. "/.cache/noctalia/wallpaper-carousel"
   end
   cacheDir = base .. "/thumbnails"
-  noctalia.mkdirAll(cacheDir)
+  -- Without a writable cache directory every conversion would fail, so a
+  -- refused mkdir keeps the converter off and the cards on their source image.
+  if noctalia.mkdirAll(cacheDir) == false then
+    return
+  end
 
   if noctalia.commandExists("magick") then
     thumbBin = "magick"
@@ -269,30 +271,80 @@ local function thumbPath(path)
   return string.format("%s/%s_%s.jpg", cacheDir, base, hashPath(path))
 end
 
-local function displayPath(item)
-  initCache()
-  local thumb = thumbPath(item.path)
-  if noctalia.fileExists(thumb) then return thumb end
-  if thumbPending[item.path] or not thumbBin then return item.path end
+-- Preview generation is throttled and remembers its failures. The host runs
+-- only a handful of commands per entry at the same time, so converting every
+-- visible card at once would leave most of them unstarted, and an image the
+-- converter cannot read would otherwise be retried on every frame.
+local THUMB_WAVE = 4
+local thumbReady = {}
+local thumbQueued = {}
+local thumbFailed = {}
+local thumbQueue = {}
+local thumbActive = 0
 
-  thumbPending[item.path] = true
-  local argv
+local function thumbArgv(path, thumb)
   if thumbBin == "ffmpeg" then
-    argv = {
-      "ffmpeg", "-y", "-loglevel", "error", "-i", item.path,
+    return {
+      "ffmpeg", "-y", "-loglevel", "error", "-i", path,
       "-frames:v", "1",
       "-vf", "scale=640:360:force_original_aspect_ratio=decrease",
       thumb,
     }
-  else
-    argv = { thumbBin, item.path, "-thumbnail", "640x360>", "-quality", "85", thumb }
   end
+  return { thumbBin, path, "-thumbnail", "640x360>", "-quality", "85", thumb }
+end
 
-  noctalia.runAsync(argv, function()
-    thumbPending[item.path] = nil
+local pumpThumbs
+
+local function startThumb(path)
+  local thumb = thumbPath(path)
+  thumbActive = thumbActive + 1
+
+  local started = noctalia.runAsync(thumbArgv(path, thumb), function(result)
+    thumbActive = thumbActive - 1
+    thumbQueued[path] = nil
+    if result and result.exitCode == 0 then
+      thumbReady[path] = true
+    else
+      -- Nothing will change on the next frame, so do not ask again until the
+      -- folder is rescanned.
+      thumbFailed[path] = true
+    end
+    pumpThumbs()
     if isOpen then render() end
   end)
 
+  if not started then
+    thumbActive = thumbActive - 1
+    thumbQueued[path] = nil
+    -- The host refused another command right now; the card falls back to the
+    -- full-size image until the carousel is opened again.
+    thumbFailed[path] = true
+    return false
+  end
+  return true
+end
+
+pumpThumbs = function()
+  while thumbActive < THUMB_WAVE and #thumbQueue > 0 do
+    startThumb(table.remove(thumbQueue, 1))
+  end
+end
+
+local function displayPath(item)
+  initCache()
+  local thumb = thumbPath(item.path)
+  if thumbReady[item.path] or noctalia.fileExists(thumb) then
+    thumbReady[item.path] = true
+    return thumb
+  end
+  if not thumbBin or thumbFailed[item.path] or thumbQueued[item.path] then
+    return item.path
+  end
+
+  thumbQueued[item.path] = true
+  thumbQueue[#thumbQueue + 1] = item.path
+  pumpThumbs()
   return item.path
 end
 
@@ -347,8 +399,6 @@ local function getCurrentWallpaper()
     if path then return path end
   end
 
-  local ok, path = pcall(noctalia.wallpaperPath)
-  if ok and type(path) == "string" and path ~= "" then return path end
   return nil
 end
 
@@ -431,6 +481,12 @@ local function scan(force)
     if a.sortKey == b.sortKey then return a.filename < b.filename end
     return a.sortKey < b.sortKey
   end)
+
+  if force then
+    -- A rescan follows a config change or a reopen: give previews that failed
+    -- last time another chance.
+    thumbFailed = {}
+  end
 
   items = list
   lastDir = dir
@@ -625,6 +681,9 @@ local function deleteSelected()
     initCache()
     local thumb = thumbPath(item.path)
     if noctalia.fileExists(thumb) then pcall(noctalia.removeFile, thumb) end
+    thumbReady[item.path] = nil
+    thumbQueued[item.path] = nil
+    thumbFailed[item.path] = nil
 
     for i, candidate in ipairs(items) do
       if candidate.path == item.path then
@@ -634,6 +693,7 @@ local function deleteSelected()
     end
 
     local wasCurrent = item.path == currentPath
+    anim = nil
     if #items == 0 then
       selected = 1
       pos = 1.0
@@ -790,8 +850,6 @@ render = function()
     padding = 24,
     align = "center",
     justify = "center",
-    width = "fill",
-    height = "fill",
     translateX = shiftX,
     translateY = shiftY,
     opacity = appearOpacity,
@@ -835,6 +893,12 @@ function onFrameTick(deltaMs)
 
   if dirty then render() end
   if hideNow then finishHide() end
+  if not motion and not anim then
+    -- Nothing will look different on the next frame: stop the frame callback
+    -- instead of running the script at the compositor's refresh rate while the
+    -- carousel sits idle.
+    layer.setNeedsFrameTick(false)
+  end
 end
 
 local lastPosition = noctalia.state.get("carousel.position")
@@ -874,13 +938,8 @@ noctalia.state.watch("carousel.hideSeq", function(value)
   startMotion(true)
 end)
 
-function onScroll(axis, steps)
-  if axis ~= "vertical" or #items == 0 then return end
-  local now = noctalia.nowMs()
-  if now - lastScroll < 90 then return end
-  lastScroll = now
-  step((steps or 0) > 0 and 1 or -1)
-end
+-- The wheel is not handled here: the host delivers onScroll to bar widgets only,
+-- so the strip is driven by the keys, the panel IPC events and the pointer.
 
 function onConfigChanged()
   -- Orientation changes the viewport axis and the layer box, so re-derive the

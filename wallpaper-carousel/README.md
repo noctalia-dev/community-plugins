@@ -2,9 +2,9 @@
 
 A full-screen, animated carousel of the wallpapers in a folder. Preview thumbnails
 are generated once and cached, the focused card is enlarged, the cards fade out
-towards the edges, and the whole strip scrolls with the keyboard, the wheel or a
-click. The same plugin also renders as a vertical column that uses the screen
-height.
+towards the edges, and the strip moves with the keyboard, a click on a card or the
+panel IPC events. The same plugin also renders as a vertical column that uses the
+screen height.
 
 Deleting a card moves the file to the XDG trash, so a mistyped key is recoverable.
 
@@ -40,8 +40,9 @@ holds the keyboard while the carousel is open. Toggle it with:
 noctalia msg panel-toggle type3demo/wallpaper-carousel:keys
 ```
 
-The control-center shortcut `toggle` does the same from the shortcut tiles. Bind
-the command above to a compositor shortcut for quick access.
+The control-center shortcut `toggle` does the same from the shortcut tiles: add
+the `toggle` entry under **Settings → Control Center shortcuts**. Bind the
+command above to a compositor shortcut for quick access.
 
 While the carousel is open:
 
@@ -55,8 +56,9 @@ While the carousel is open:
 | `Escape` | close the carousel |
 
 Clicking a card applies it when it is the focused card and scrolls to it
-otherwise. The mouse wheel scrolls the strip. The folder is rescanned every time
-the carousel opens.
+otherwise. `Escape` closes the carousel through Noctalia's cancel action, which
+stays with the host rather than being captured by the panel. The folder is
+rescanned every time the carousel opens.
 
 The panel placement (`position` in Noctalia's plugin settings) decides where the
 layer is anchored, and the carousel animates in from the nearest screen edge and
@@ -96,11 +98,11 @@ been opened at least once since Noctalia started.
   directory; `realpath -z -e -- <wallpaper> <folder>` and `gio trash -- <path>`
   when a wallpaper is deleted, or `mv -n -- <path> <path>.trashed` when `gio` is
   not installed.
-- **Files written**: JPEG previews (640×360) in the plugin data directory, and
-  the file system's trash directory when a wallpaper is deleted. Preview files of
-  deleted wallpapers are removed with them.
+- **Files written**: JPEG previews of at most 640×360 in the plugin data directory,
+  and the file system's trash directory when a wallpaper is deleted. Preview files
+  of deleted wallpapers are removed with them.
 - **Files read**: the configured wallpaper folder, and the wallpaper path of each
   output from the Noctalia API.
 - No network access.
-- The layer surface is click-through only when hidden; while the carousel is open
-  it covers the anchored strip on one output.
+- The layer is unmapped while the carousel is closed, so it takes no clicks or
+  keys then; while it is open it covers the anchored strip on one output.

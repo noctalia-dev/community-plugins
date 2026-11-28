@@ -74,9 +74,6 @@ function onKey(chord, pressed)
     emit("random")
   elseif key == "alt+d" then
     emit("delete")
-  elseif chord == "Escape" then
-    requestHide()
-    panel.close()
   end
 end
 
