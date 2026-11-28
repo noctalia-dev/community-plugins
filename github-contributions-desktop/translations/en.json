@@ -6,8 +6,10 @@
     "day_total": "{date} · {count} contributions",
     "preparing": "Preparing contribution calendar…",
     "summary": "{login} · {count} in the last year · {streak} day streak",
+    "summary_half": "{login} · {count} in the last 6 months · {streak} day streak",
     "title": "GitHub Contributions",
-    "summary_year": "{login} · {count} contributions in {year}"
+    "summary_year": "{login} · {count} contributions in {year}",
+    "summary_year_half": "{login} · {count} contributions in {year} (last 6 months)"
   },
   "plugin": {
     "description": "A GitHub contribution calendar as a Noctalia desktop widget.",
@@ -38,6 +40,14 @@
     "heatmap_only": {
       "label": "Heatmap only",
       "description": "Show only the contribution heatmap grid, without the header, footer, or month and weekday labels."
+    },
+    "period": {
+      "label": "Period",
+      "description": "Which part of the year the calendar shows. Last 6 months shows only the most recent half, so the widget is shorter.",
+      "options": {
+        "full": "Full year",
+        "last6": "Last 6 months"
+      }
     },
     "wrap": {
       "label": "Wrap into rows",

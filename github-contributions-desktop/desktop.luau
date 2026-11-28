@@ -43,17 +43,23 @@ local selectedByKey = {}
 local cachedHeatmap = nil
 local cachedCalendar = nil
 local cachedWrap = nil
+local cachedPeriod = nil
 local gridColumns = {}
 local gridLevels = {}
 local gridDetails = {}
 local gridWeek = 1
 local gridWeekCount = 0
+local gridFirstWeek = 1
+local shownTotal = 0
 local gridPreparingDay = 1
 local gridReady = false
 local tr = noctalia.tr
 local accentColor = noctalia.getConfig("color") or "#39d353"
 local cellSize = Settings.cellSize(noctalia.getConfig("cell_size"))
 local cornerRadius = Settings.cornerRadius(noctalia.getConfig("corner_radius"))
+-- Day-cell rounding scales with the cell size (2 px at the default 10 px,
+-- up to 8 px at the largest cells) instead of staying square-ish.
+local cellRadius = math.clamp(math.floor(cellSize / 3), 2, 8)
 local calendarCellWidth = cellSize
 local calendarCellHeight = cellSize + 2
 local calendarColumnGap = 1
@@ -103,6 +109,7 @@ local function resetGrid(source)
   cachedHeatmap = nil
   cachedCalendar = nil
   cachedWrap = nil
+  cachedPeriod = Settings.period(noctalia.getConfig("period"))
   gridColumns = {}
   gridLevels = {}
   gridDetails = {}
@@ -113,6 +120,8 @@ local function resetGrid(source)
   gridPreparingDay = 1
   gridReady = source ~= nil and type(source.rows) == "table"
   gridWeekCount = 0
+  gridFirstWeek = 1
+  shownTotal = 0
 end
 
 local function detailDate(day, week)
@@ -188,7 +197,7 @@ local function representativeDateForWeek(week)
 end
 
 local function representativeDateForDay(day)
-  for week = 1, gridWeekCount do
+  for week = gridFirstWeek, gridFirstWeek + gridWeekCount - 1 do
     local date = detailDate(day, week)
     if date ~= nil then
       return date
@@ -292,10 +301,12 @@ local function layoutGrid()
     end
     local blockRow = ui.row({ gap = calendarColumnGap, align = "start" }, blockColumns)
     table.insert(heatmapBlocks, blockRow)
+    -- The block range is a position inside the shown weeks; the month
+    -- header needs the absolute week numbers behind it.
     table.insert(calendarBlocks, ui.row({ gap = 10, align = "end", justify = "center" }, {
       buildWeekdayLabels(),
       ui.column({ gap = 6, align = "start" }, {
-        buildMonthHeaderForRange(startWeek, endWeek),
+        buildMonthHeaderForRange(gridFirstWeek + startWeek - 1, gridFirstWeek + endWeek - 1),
         blockRow,
       }),
     }))
@@ -320,6 +331,19 @@ local function prepareGridDay()
   gridDetails[day] = splitTabs((data.details or {})[day])
   gridWeekCount = math.max(gridWeekCount, #gridLevels[day])
   gridPreparingDay = gridPreparingDay + 1
+
+  -- All seven rows are in, so the total week count is final. In "last 6
+  -- months" mode the grid starts at the second half of the year; the week
+  -- count becomes the number of shown weeks from there on.
+  if gridPreparingDay > 7 then
+    if Settings.period(noctalia.getConfig("period")) == "last6" then
+      gridFirstWeek = math.floor(gridWeekCount / 2) + 1
+    else
+      gridFirstWeek = 1
+    end
+    gridWeekCount = gridWeekCount - gridFirstWeek + 1
+    gridWeek = gridFirstWeek
+  end
 end
 
 local function prepareGridColumns()
@@ -329,7 +353,9 @@ local function prepareGridColumns()
 
   -- One native week per tick keeps every callback well below Noctalia's Luau
   -- budget while preserving individual hover targets for every day.
-  local lastWeek = math.min(gridWeek, gridWeekCount)
+  -- gridWeek is an absolute week number; gridWeekCount is how many weeks
+  -- are shown from gridFirstWeek on.
+  local lastWeek = math.min(gridWeek, gridFirstWeek + gridWeekCount - 1)
   while gridWeek <= lastWeek do
     local cells = {}
     for day = 1, 7 do
@@ -337,11 +363,13 @@ local function prepareGridColumns()
       local date, countText = string.match(rawDetail, "^([^|]+)|(%d+)$")
       if date ~= nil then
         local key = "day-" .. date
-        selectedByKey[key] = { date = date, count = tonumber(countText) or 0 }
+        local count = tonumber(countText) or 0
+        shownTotal = shownTotal + count
+        selectedByKey[key] = { date = date, count = count }
         table.insert(cells, ui.box({
           key = key,
           fill = levelColor(gridLevels[day][gridWeek]),
-          radius = 2,
+          radius = cellRadius,
           width = calendarCellWidth,
           height = calendarCellHeight,
           onHover = "onDayHover",
@@ -353,7 +381,7 @@ local function prepareGridColumns()
     gridWeek = gridWeek + 1
   end
 
-  if gridWeek > gridWeekCount then
+  if gridWeek > gridFirstWeek + gridWeekCount - 1 then
     layoutGrid()
   end
 end
@@ -400,6 +428,15 @@ local function statusText()
 end
 
 function render()
+  -- The period setting changes which weeks are shown, not the data, so a
+  -- change in the editor rebuilds the grid from the same data instead of
+  -- refetching anything.
+  if data ~= nil and cachedHeatmap ~= nil and cachedPeriod ~= Settings.period(noctalia.getConfig("period")) then
+    resetGrid(data)
+    desktopWidget.setWantsSecondTicks(true)
+    desktopWidget.setNeedsFrameTick(true)
+  end
+
   -- The wrap setting changes the grid layout, not the data, so a change in
   -- the editor re-groups the already-built week-columns instead of
   -- rebuilding (or refetching) anything.
@@ -455,14 +492,20 @@ function render()
 
     -- One footer line: the hovered day while hovering, otherwise the pinned
     -- day, otherwise the summary. A specific year shows the year instead of
-    -- the "last year" streak summary.
+    -- the "last year" streak summary. In "last 6 months" mode the total is
+    -- the shown half's total, not the year's.
     local day = footerDay()
     local isPinned = day ~= nil and selectedDay() == nil and pinnedDay() ~= nil
     local footerText
+    local halfMode = Settings.period(noctalia.getConfig("period")) == "last6"
     if day ~= nil then
       footerText = tr("desktop.day_total", { date = formatMonthDay(day.date), count = day.count })
     elseif selectedYear ~= "last12" then
-      footerText = tr("desktop.summary_year", { login = data.login, count = data.total, year = selectedYear })
+      footerText = halfMode
+        and tr("desktop.summary_year_half", { login = data.login, count = shownTotal, year = selectedYear })
+        or tr("desktop.summary_year", { login = data.login, count = data.total, year = selectedYear })
+    elseif halfMode then
+      footerText = tr("desktop.summary_half", { login = data.login, count = shownTotal, streak = data.currentStreak })
     else
       footerText = tr("desktop.summary", { login = data.login, count = data.total, streak = data.currentStreak })
     end
