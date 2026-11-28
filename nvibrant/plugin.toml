@@ -1,0 +1,25 @@
+id = "nofiltera1/nvibrant"
+name = "NVibrant"
+version = "1.0.0"
+plugin_api = 42
+author = "NoFilterA1"
+license = "MIT"
+dependencies = ["bash", "awk", "niri", "nvibrant"]
+tags = ["bar", "panel", "system", "gaming", "hardware", "niri"]
+icon = "contrast"
+description = "Screen saturation. NVIDIA: nvibrant. AMD/Intel: needs a niri build with the unmerged color-matrix action."
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 340
+height = "content"
+max_height = 200
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
