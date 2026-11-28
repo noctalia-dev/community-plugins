@@ -22,7 +22,7 @@ license = "MIT"
 icon = "coffee"
 description = "Caffeine with timed presets, a countdown, auto-off on screen lock, and an optional lid-close inhibit."
 tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
-dependencies = ["noctalia", "systemd-inhibit", "systemd-run", "systemctl", "grep", "sh", "date", "stat", "sleep", "brightnessctl", "busctl"]
+dependencies = ["noctalia", "systemd-inhibit", "systemd-run", "systemctl", "grep", "sh", "date", "stat", "sleep"]
 
 [[setting]]
 key = "presets_minutes"
