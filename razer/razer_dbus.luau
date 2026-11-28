@@ -43,6 +43,8 @@ end
 
 -- Get detailed info for a single device
 local staticCache: { [string]: { name: string, devType: string } } = {}
+-- A sleeping wireless device times out in the driver and the daemon reports 0, so 0 means unknown.
+local lastBattery: { [string]: number } = {}
 
 function Razer.getDeviceInfo(serial: string, callback: (DeviceInfo?) -> ())
   local path = "/org/razer/device/" .. serial
@@ -88,7 +90,13 @@ function Razer.getDeviceInfo(serial: string, callback: (DeviceInfo?) -> ())
       if batRes.exitCode == 0 then
         hasBattery = true
         local rawBat = batRes.stdout:match('d%s+([%d%.]+)')
-        batteryVal = math.floor(tonumber(rawBat) or -1)
+        local reported = math.floor(tonumber(rawBat) or -1)
+        if reported > 0 then
+          lastBattery[serial] = reported
+          batteryVal = reported
+        else
+          batteryVal = lastBattery[serial] or -1
+        end
         noctalia.runAsync({ "busctl", "--user", "call", "org.razer", path, "razer.device.power", "isCharging" }, function(chgRes)
           isCharging = chgRes.exitCode == 0 and chgRes.stdout:find("true") ~= nil
           checkDone()
