@@ -1,0 +1,260 @@
+{
+  "panel": {
+    "title": "Storage"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "map": "Usage map",
+    "clean": "Free up space",
+    "drives": "Drives"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "copied": "Path copied.",
+    "copy_path": "Copy path",
+    "dismiss": "Dismiss",
+    "loading": "Looking…",
+    "no_answer": "no answer",
+    "open": "Open",
+    "refresh": "Look again",
+    "reveal": "Show in file manager",
+    "show": "Show",
+    "show_fewer": "Show fewer",
+    "show_more": "Show {n} more",
+    "working": "Working…"
+  },
+  "overview": {
+    "free": "{free} free",
+    "of": "of {size}",
+    "readonly": "read-only",
+    "reclaim": "About {size} could go without touching anything you made."
+  },
+  "scan": {
+    "again": "Scan again",
+    "done": "Looked through {files} files {ago}",
+    "hint": "Scan this drive to see what is filling it, folder by folder.",
+    "progress": "Looking through {files} files, {bytes} so far",
+    "scan": "Scan",
+    "starting": "Starting to look…",
+    "stop": "Stop",
+    "stopped": "The scan stopped before it finished.",
+    "unreadable": "{n} only the system can read"
+  },
+  "cat": {
+    "system": "System",
+    "apps": "Apps and libraries",
+    "pkgcache": "Package cache",
+    "caches": "Caches",
+    "trash": "Trash",
+    "video": "Videos",
+    "image": "Pictures",
+    "audio": "Music",
+    "docs": "Documents",
+    "archive": "Archives",
+    "code": "Code",
+    "other": "Other files",
+    "restricted": "Restricted"
+  },
+  "map": {
+    "changed": "changed {ago}",
+    "closer": "Look closer",
+    "closer_busy": "Looking closer…",
+    "empty": "Nothing in here takes up any room.",
+    "files": "{n} files",
+    "missing": "This folder is not in the last scan. Scan again to see it.",
+    "not_allowed": "you are not allowed in",
+    "not_allowed_long": "You are not allowed to look inside this folder.",
+    "open": "Map",
+    "rest": "{n} smaller items",
+    "rest_sub": "Too small to list one by one",
+    "total": "{size} in {files} files",
+    "up": "Up one folder"
+  },
+  "trash": {
+    "confirm_body": "“{name}” ({size}) goes to the trash. The space comes back once the trash is emptied.",
+    "confirm_title": "Move to the trash?",
+    "done": "“{name}” is in the trash.",
+    "failed": "“{name}” could not be moved to the trash.",
+    "move": "Move to the trash",
+    "move_short": "Move"
+  },
+  "clean": {
+    "asks_password": "Asks for your password.",
+    "done": "Done. {freed} came back.",
+    "failed": "That did not work: {error}",
+    "intro": "About {size} could go without touching anything you made. Each item asks before it deletes.",
+    "measure": "Measure again",
+    "measuring": "Measuring caches, old packages and the trash…",
+    "measuring_short": "Measuring…",
+    "no_pkexec": "pkexec is not installed, so nothing here can run as root.",
+    "nothing": "Nothing here is worth clearing right now.",
+    "section": "Caches and trash",
+    "waiting": "Waiting to measure.",
+    "cache": {
+      "action": "Clear",
+      "body": "Made again when needed.",
+      "confirm_body": "Nothing you made is kept in here.",
+      "confirm_title": "Clear {name}?"
+    },
+    "trash": {
+      "action": "Empty",
+      "body": "{n} items you deleted, still taking up room.",
+      "confirm_body": "Everything in it is deleted for good. This cannot be undone.",
+      "confirm_title": "Empty the trash?",
+      "title": "Trash"
+    },
+    "pacman": {
+      "action": "Clean",
+      "body": "pacman keeps every package it downloads: {old} older versions of what you have, and {gone} belonging to software you removed. The version you have installed stays.",
+      "confirm_body": "pacman -Sc runs as root and keeps only the packages you have installed. Downgrading to an older version would mean downloading it again.",
+      "confirm_title": "Clean the package cache?",
+      "title": "Old package downloads"
+    },
+    "orphans": {
+      "action": "Remove",
+      "body": "{n} packages were installed for something that is gone: {names}.",
+      "confirm_body": "pacman -Rns removes them. Each was pulled in by something no longer installed. If you use one of them directly, install it on purpose first.",
+      "confirm_title": "Remove {n} packages?",
+      "title": "Unused dependencies"
+    },
+    "journal": {
+      "action": "Shrink",
+      "body": "The journal takes {total}. Shrinking it keeps the newest {keep}.",
+      "confirm_body": "journalctl deletes the oldest log files until {keep} is left.",
+      "confirm_title": "Shrink the system logs?",
+      "title": "System logs"
+    },
+    "coredumps": {
+      "action": "Delete",
+      "body": "{n} memory snapshots saved when programs crashed. They only matter if you are debugging those crashes.",
+      "confirm_body": "The saved crash dumps are deleted for good.",
+      "confirm_title": "Delete the crash dumps?",
+      "title": "Crash dumps"
+    },
+    "flatpak": {
+      "action": "Remove",
+      "body": "{n} runtimes that no installed app needs any more.",
+      "confirm_body": "flatpak uninstall --unused removes them. Apps that need one later download it again.",
+      "confirm_title": "Remove unused runtimes?",
+      "title": "Unused Flatpak runtimes"
+    },
+    "othercaches": {
+      "body": "Kept by your apps, biggest first: {list}. Close an app before clearing its cache by hand.",
+      "title": "Other app caches"
+    },
+    "downloads": {
+      "body": "{n} items in Downloads have not changed in {days} days.",
+      "title": "Old downloads"
+    }
+  },
+  "cache": {
+    "thumbnails": { "title": "Thumbnails", "body": "Small previews of your pictures and videos, made again as folders are opened." },
+    "pip": { "title": "pip downloads", "body": "Python packages pip downloaded, fetched again when a project needs them." },
+    "yay": { "title": "yay build files", "body": "Sources and builds left over from installing AUR packages." },
+    "paru": { "title": "paru build files", "body": "Sources and builds left over from installing AUR packages." },
+    "npm": { "title": "npm cache", "body": "JavaScript packages npm downloaded, fetched again when a project needs them." },
+    "yarn": { "title": "Yarn cache", "body": "JavaScript packages Yarn downloaded, fetched again when a project needs them." },
+    "bun": { "title": "Bun cache", "body": "JavaScript packages Bun downloaded, fetched again when a project needs them." },
+    "gobuild": { "title": "Go build cache", "body": "Compiled Go packages, rebuilt on the next build." },
+    "nodegyp": { "title": "node-gyp headers", "body": "Headers for building native Node modules, downloaded again when needed." },
+    "cargo": { "title": "Cargo registry", "body": "Crates Cargo downloaded, fetched again on the next build." },
+    "gradle": { "title": "Gradle caches", "body": "Dependencies of Java and Android builds, fetched again on the next build." },
+    "maven": { "title": "Maven repository", "body": "Dependencies of Java builds, fetched again on the next build." },
+    "electron": { "title": "Electron downloads", "body": "Electron builds that development tools downloaded." },
+    "composer": { "title": "Composer cache", "body": "PHP packages Composer downloaded." },
+    "shaders": { "title": "Shader caches", "body": "Compiled shaders. Games and apps build them again, so their next start is slower." },
+    "shadersdb": { "title": "Shader caches", "body": "Compiled shaders. Games and apps build them again, so their next start is slower." }
+  },
+  "large": {
+    "need_scan": "Scan a drive on the Overview tab to list its biggest files here.",
+    "section": "Largest files",
+    "sub": "Your biggest files on the scanned drives. Not deleted from here unless you say so."
+  },
+  "dupes": {
+    "group": "{n} copies of {name}. Keeping one gets {size} back.",
+    "oldest": "oldest copy, ",
+    "section": "Duplicates",
+    "sub": "The same file in more than one place, matched by size and by samples of what is inside. Keeping one of each gets {size} back."
+  },
+  "drives": {
+    "eject": "Eject",
+    "eject_body": "Every mounted partition on it is unmounted, then the drive is powered off. Anything using it (a media server, open files) loses it until it is plugged in again.",
+    "eject_title": "Eject {name}?",
+    "hdd": "Hard drive",
+    "mount": "Mount",
+    "no_fs": "no filesystem",
+    "nvme": "NVMe SSD",
+    "removable": "Removable drive",
+    "settings_body": "Low-space warnings and emptying old trash are plugin settings.",
+    "settings_open": "Settings",
+    "settings_title": "Housekeeping",
+    "ssd": "SSD",
+    "trim_body": "Tells each SSD which blocks are free, which keeps writes fast. This is fstrim.timer, and changing it asks for your password.",
+    "trim_title": "Trim SSDs every week",
+    "udisks_failed": "udisks said: {error}",
+    "unmount": "Unmount"
+  },
+  "health": {
+    "again": "Check again",
+    "asking": "Asking the drive…",
+    "check": "Check health",
+    "error": "Could not read its health: {error}",
+    "failing": "The drive reports it is failing. Back up what matters on it.",
+    "healthy": "Healthy",
+    "hours": "{n} hours on",
+    "media_errors": "{n} media errors",
+    "spare": "{n}% spare",
+    "unchecked": "Health not checked. Reading it needs your password.",
+    "worn": "{n}% worn",
+    "written": "{size} written"
+  },
+  "time": {
+    "days": "{n} days ago",
+    "hour": "an hour ago",
+    "hours": "{n} hours ago",
+    "just_now": "just now",
+    "minutes": "{n} minutes ago",
+    "months": "{n} months ago",
+    "weeks": "{n} weeks ago",
+    "years": "{n} years ago",
+    "yesterday": "yesterday"
+  },
+  "notify": {
+    "low_body": "Only {free} is left on {name} ({percent}%).",
+    "low_title": "Running out of space",
+    "open": "Free up space"
+  },
+  "widget": {
+    "free_of": "{free} free of {size}",
+    "title": "Storage"
+  },
+  "settings": {
+    "low_space_warning": {
+      "label": "Warn when space runs low",
+      "description": "Notify when the system filesystem, or the one your home folder is on, drops below the threshold. Checked every ten minutes."
+    },
+    "low_space_percent": {
+      "label": "Warn below (% free)",
+      "description": "Free space, in percent of the filesystem, that triggers the warning."
+    },
+    "empty_trash_after": {
+      "label": "Empty old trash automatically",
+      "description": "Permanently delete items that have been in the trash longer than this. Checked at startup and every six hours.",
+      "options": {
+        "never": "Never",
+        "week": "After a week",
+        "month": "After a month",
+        "quarter": "After three months"
+      }
+    },
+    "show_free": {
+      "label": "Show free space",
+      "description": "Show the free space next to the glyph instead of the glyph alone."
+    },
+    "mount": {
+      "label": "Filesystem",
+      "description": "Mount point whose free space the bar shows, for example / or /home."
+    }
+  }
+}
