@@ -29,6 +29,9 @@ local function render()
   if status.lidHeld then
     table.insert(rows, { key = "", value = noctalia.tr("tooltip.lid") })
   end
+  if status.dimmed then
+    table.insert(rows, { key = "", value = noctalia.tr("tooltip.dimmed") })
+  end
   table.insert(rows, { key = "", value = noctalia.tr("tooltip.hint") })
   barWidget.setTooltip(rows)
 end

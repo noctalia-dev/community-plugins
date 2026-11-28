@@ -8,6 +8,7 @@
     "remaining": "Remaining",
     "external": "On (turned on elsewhere)",
     "lid": "Lid close won't suspend",
+    "dimmed": "Lid closed, display off",
     "hint": "Click: toggle · Right click: presets · Scroll: ± time"
   },
   "panel": {
@@ -38,6 +39,10 @@
     "lid_inhibit": {
       "label": "Ignore lid close by default",
       "description": "While caffeine is on, also stop lid close from suspending"
+    },
+    "dim_on_lid_close": {
+      "label": "Turn display off on lid close",
+      "description": "Requires Ignore lid close. While a session runs, set the internal display brightness to 0 when the lid closes and restore it when it opens"
     },
     "show_remaining": {
       "label": "Show remaining time",

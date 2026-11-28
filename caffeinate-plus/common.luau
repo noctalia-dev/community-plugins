@@ -22,7 +22,16 @@ function M.status()
   if type(s) == "table" then
     return s
   end
-  return { active = false, session = false, owned = false, lidEnabled = false, lidHeld = false, busy = false }
+  return {
+    active = false,
+    session = false,
+    owned = false,
+    lidEnabled = false,
+    lidHeld = false,
+    dimEnabled = true,
+    dimmed = false,
+    busy = false,
+  }
 end
 
 -- Compact remaining time for the bar: "45s", "12m", "3h 05m".
