@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "label": {
+      "label": "Button label",
+      "description": "Text shown on the bar button."
+    }
+  },
+  "title": "Scratchpad",
+  "list_heading": "Scratchpad",
+  "empty_note": "Empty note",
+  "status_unsaved": "● not saved yet…",
+  "status_save_failed": "● save failed!",
+  "stats": "{chars} chars ♪",
+  "placeholder": "Jot something down… I will save it for you ♡",
+  "open_folder": "Open data folder",
+  "new_note": "New note",
+  "close": "Close",
+  "delete_hint": "Delete this note",
+  "delete_armed_tooltip": "Click again to confirm",
+  "notes_listed": "you have {count} notes: {list}",
+  "open_tooltip": "Open Scratchpad"
+}

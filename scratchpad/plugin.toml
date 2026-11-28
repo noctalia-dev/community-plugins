@@ -1,0 +1,50 @@
+# Scratchpad — a quick note pad for the Noctalia bar.
+# Paste or type short notes; they survive restarts in the plugin data dir.
+
+id = "xinghui/scratchpad"
+name = "Scratchpad"
+version = "0.9.8"
+# 52 = declarative compositing: translateY/opacity for the short in-panel
+# open/switch animations. Still runs on Noctalia 5.5+.
+plugin_api = 52
+author = "xinghui"
+license = "MIT"
+# External commands the plugin may run (community CI requires each one here).
+dependencies = ["xdg-open"]
+tags = ["utility", "productivity", "panel", "shortcut"]
+icon = "note"
+description = "Plain-text sticky notes with auto-save. Local only, no network."
+
+# Control-center quick tile. Click it to open the pad.
+[[shortcut]]
+id = "open"
+entry = "shortcut.luau"
+
+# The main pad surface. Open with:
+#   noctalia msg panel-toggle xinghui/scratchpad:pad
+# Panel size is host-owned, so declare it here.
+[[panel]]
+id = "pad"
+entry = "pad.luau"
+width = 720
+height = 700
+placement = "floating"
+position = "center"
+# Keep the surface alive across open/close: close only hides it, so the close
+# animation never fights a layer-surface teardown and reopening is instant.
+persistent = true
+dismiss_on_outside_click = false
+# Panel-focused shortcut: new note. Ordinary Ctrl+V already pastes plain text.
+capture_keys = ["ctrl+n"]
+
+# Optional bar button. Add "Scratchpad" from the widget picker, click to open.
+[[widget]]
+id = "launcher"
+entry = "launcher.luau"
+
+  [[widget.setting]]
+  key = "label"
+  type = "string"
+  label_key = "settings.label.label"
+  description_key = "settings.label.description"
+  default = "Scratchpad"
