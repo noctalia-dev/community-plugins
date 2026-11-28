@@ -497,15 +497,20 @@ local function trim(text)
   return (tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- realpath(1) resolves symlinks, which the host API does not expose. Resolve
--- every path in one call so the answers belong to the same moment.
+local NUL = string.char(0)
+
+-- realpath(1) resolves symlinks, which the host API does not expose. One call
+-- resolves every path, so the answers belong to the same moment, and the
+-- records are NUL-delimited: CR and LF are legal in filenames, so a
+-- line-split answer can mistake a fragment of a path for the resolved root, and
+-- a name that ends in a newline would be silently truncated into another file.
 local function realPaths(paths, cb)
   if not noctalia.commandExists or not noctalia.commandExists("realpath") then
     cb(nil, tr("notify.no_realpath"))
     return
   end
 
-  local argv = { "realpath", "-e", "--" }
+  local argv = { "realpath", "-z", "-e", "--" }
   for _, path in ipairs(paths) do argv[#argv + 1] = path end
 
   local started = noctalia.runAsync(argv, function(result)
@@ -514,11 +519,19 @@ local function realPaths(paths, cb)
       cb(nil, message ~= "" and message or "realpath failed")
       return
     end
+
+    local out = result.stdout or ""
     local resolved = {}
-    for line in (result.stdout or ""):gmatch("[^\r\n]+") do
-      resolved[#resolved + 1] = line
+    local cursor = 1
+    while true do
+      local stop = out:find(NUL, cursor, true)
+      if not stop then break end
+      resolved[#resolved + 1] = out:sub(cursor, stop - 1)
+      cursor = stop + 1
     end
-    if #resolved < #paths then
+    -- Every record has to be closed by its own NUL: a truncated answer would
+    -- otherwise merge or drop paths instead of failing.
+    if cursor ~= #out + 1 or #resolved ~= #paths then
       cb(nil, "realpath failed")
       return
     end
@@ -534,17 +547,49 @@ local function insideRoot(target, root)
   return target:sub(1, #prefix) == prefix
 end
 
+-- The rename that parks a wallpaper without gio. mv -n claims the destination
+-- with a no-replace rename, so a name that already exists -- including a
+-- dangling symlink, which fileExists does not see -- is never replaced and no
+-- check of ours can be overtaken by another writer. mv -n also reports success
+-- when it skipped the move, so the source is checked afterwards: only a source
+-- that is gone means the name was claimed.
+local function parkFile(target, n, cb)
+  local parked = n == 0 and (target .. ".trashed") or string.format("%s.trashed.%d", target, n)
+
+  local started = noctalia.runAsync({ "mv", "-n", "--", target, parked }, function(result)
+    if result.exitCode ~= 0 then
+      local message = trim(result.stderr)
+      cb(false, message ~= "" and message or "mv failed")
+      return
+    end
+    if not noctalia.fileExists(target) then
+      cb(true, parked)
+      return
+    end
+    if n >= 999 then
+      cb(false, "no free trash name")
+      return
+    end
+    parkFile(target, n + 1, cb)
+  end)
+
+  if not started then cb(false, "mv failed") end
+end
+
 local function trashFile(path, root, cb)
   -- Deletion acts on the file a path resolves to: a scanned subfolder can be a
   -- symlink pointing anywhere, and gio or a rename would then move a wallpaper
   -- that lives outside the configured folder (and one the carousel only lists
-  -- by its link path). Refuse anything whose real path leaves the root.
+  -- by its link path). Refuse anything whose real path leaves the root, and
+  -- act on the resolved path only -- a directory symlink retargeted after the
+  -- check would redirect the original alias.
   realPaths({ path, root }, function(resolved, err)
     if not resolved then
       cb(false, err)
       return
     end
-    if not insideRoot(resolved[1], resolved[2]) then
+    local target, folder = resolved[1], resolved[2]
+    if not insideRoot(target, folder) then
       cb(false, tr("notify.delete_outside"))
       return
     end
@@ -552,23 +597,15 @@ local function trashFile(path, root, cb)
     -- gio moves the file to the XDG trash, so Alt+D stays undoable from the
     -- file manager.
     if noctalia.commandExists and noctalia.commandExists("gio") then
-      noctalia.runAsync({ "gio", "trash", path }, function(result)
+      noctalia.runAsync({ "gio", "trash", "--", target }, function(result)
         cb(result.exitCode == 0, trim(result.stderr))
       end)
       return
     end
 
     -- Without gio the file is parked next to the original instead of being
-    -- deleted for good. renameFile replaces an existing destination, so the
-    -- first free suffix is used and an earlier parked copy is never lost.
-    local parked = path .. ".trashed"
-    local n = 1
-    while noctalia.fileExists(parked) do
-      parked = string.format("%s.trashed.%d", path, n)
-      n = n + 1
-    end
-    local ok, renameErr = noctalia.renameFile(path, parked)
-    cb(ok, renameErr)
+    -- deleted for good, under the first name that is still free.
+    parkFile(target, 0, cb)
   end)
 end
 
