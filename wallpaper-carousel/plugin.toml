@@ -1,0 +1,77 @@
+id = "type3demo/wallpaper-carousel"
+name = "Wallpaper Carousel"
+version = "1.0.0"
+plugin_api = 52
+author = "type3demo"
+license = "MIT"
+icon = "photo"
+description = "Animated wallpaper carousel with live previews, keyboard navigation and Alt+D to trash."
+tags = ["animation", "panel", "shortcut", "wallpaper"]
+dependencies = ["ffmpeg", "gio", "mv", "realpath"]
+
+[[setting]]
+key = "wallpaper_dir"
+type = "folder"
+label_key = "settings.wallpaper_dir.label"
+description_key = "settings.wallpaper_dir.description"
+
+[[setting]]
+key = "orientation"
+type = "select"
+label_key = "settings.orientation.label"
+description_key = "settings.orientation.description"
+default = "horizontal"
+options = [
+  { value = "horizontal", label_key = "settings.orientation.horizontal" },
+  { value = "vertical", label_key = "settings.orientation.vertical" },
+]
+
+[[setting]]
+key = "animation_ms"
+type = "int"
+label_key = "settings.animation_ms.label"
+description_key = "settings.animation_ms.description"
+default = 320
+min = 120
+max = 1200
+step = 20
+
+[[setting]]
+key = "close_on_apply"
+type = "bool"
+label_key = "settings.close_on_apply.label"
+description_key = "settings.close_on_apply.description"
+default = false
+
+[[setting]]
+key = "notify_on_change"
+type = "bool"
+label_key = "settings.notify_on_change.label"
+description_key = "settings.notify_on_change.description"
+default = true
+
+[[layer]]
+id = "carousel"
+entry = "layer.luau"
+layer = "overlay"
+anchors = []
+width = 2200
+height = 500
+keyboard = "none"
+click_through = false
+output = "focused"
+
+[[panel]]
+id = "keys"
+entry = "keys.luau"
+width = 2
+height = 2
+placement = "floating"
+position = "center"
+dismiss_on_outside_click = false
+keyboard_focus = "exclusive"
+capture_keys = ["Left", "Right", "Up", "Down", "Return", "Space", "alt+d"]
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

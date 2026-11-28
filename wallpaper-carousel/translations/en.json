@@ -1,0 +1,37 @@
+{
+  "notify": {
+    "title": "Wallpaper Carousel",
+    "switched": "Applied",
+    "deleted": "Moved to trash",
+    "delete_failed": "Could not delete",
+    "delete_outside": "the file is outside the wallpaper folder",
+    "no_realpath": "realpath is not installed"
+  },
+  "settings": {
+    "orientation": {
+      "label": "Orientation",
+      "description": "Horizontal row of previews, or a vertical column that uses the screen height.",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical"
+    },
+    "wallpaper_dir": {
+      "label": "Wallpaper Directory",
+      "description": "Folder to scan. Leave empty to use Noctalia's wallpaper directory."
+    },
+    "animation_ms": {
+      "label": "Animation Duration",
+      "description": "Carousel slide duration in milliseconds."
+    },
+    "close_on_apply": {
+      "label": "Close on Apply",
+      "description": "Close the panel after applying a wallpaper."
+    },
+    "notify_on_change": {
+      "label": "Notify on Change",
+      "description": "Show a desktop notification when the wallpaper changes."
+    }
+  },
+  "shortcut": {
+    "label": "Wallpaper Carousel"
+  }
+}
